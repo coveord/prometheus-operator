@@ -37,6 +37,7 @@ var (
 		ReloaderConfig:               operator.DefaultReloaderTestConfig.ReloaderConfig,
 		AlertmanagerDefaultBaseImage: operator.DefaultAlertmanagerBaseImage,
 	}
+	podManagementPolicy = appsv1.ParallelPodManagement
 )
 
 func TestStatefulSetLabelingAndAnnotations(t *testing.T) {
@@ -415,6 +416,7 @@ func TestMakeStatefulSetSpecSingleDoubleDashedArgs(t *testing.T) {
 		a.Spec.Version = test.version
 		replicas := int32(3)
 		a.Spec.Replicas = &replicas
+		a.Spec.PodManagementPolicy = &podManagementPolicy
 
 		statefulSet, err := makeStatefulSetSpec(&a, defaultTestConfig, nil)
 		if err != nil {
@@ -436,6 +438,7 @@ func TestMakeStatefulSetSpecWebRoutePrefix(t *testing.T) {
 	replicas := int32(1)
 	a.Spec.Version = operator.DefaultAlertmanagerVersion
 	a.Spec.Replicas = &replicas
+	a.Spec.PodManagementPolicy = &podManagementPolicy
 
 	statefulSet, err := makeStatefulSetSpec(&a, defaultTestConfig, nil)
 	if err != nil {
@@ -458,7 +461,7 @@ func TestMakeStatefulSetSpecWebRoutePrefix(t *testing.T) {
 }
 
 func TestMakeStatefulSetSpecWebTimeout(t *testing.T) {
-
+	podManagementPolicy := appsv1.ParallelPodManagement
 	tt := []struct {
 		scenario         string
 		version          string
@@ -490,6 +493,7 @@ func TestMakeStatefulSetSpecWebTimeout(t *testing.T) {
 		t.Run(ts.scenario, func(t *testing.T) {
 			a := monitoringv1.Alertmanager{}
 			a.Spec.Replicas = toPtr(int32(1))
+			a.Spec.PodManagementPolicy = &podManagementPolicy
 
 			a.Spec.Version = ts.version
 			a.Spec.Web = ts.web
@@ -510,6 +514,7 @@ func TestMakeStatefulSetSpecWebTimeout(t *testing.T) {
 
 func TestMakeStatefulSetSpecWebConcurrency(t *testing.T) {
 
+	podManagementPolicy := appsv1.ParallelPodManagement
 	tt := []struct {
 		scenario                string
 		version                 string
@@ -542,6 +547,7 @@ func TestMakeStatefulSetSpecWebConcurrency(t *testing.T) {
 		t.Run(ts.scenario, func(t *testing.T) {
 			a := monitoringv1.Alertmanager{}
 			a.Spec.Replicas = toPtr(int32(1))
+			a.Spec.PodManagementPolicy = &podManagementPolicy
 
 			a.Spec.Version = ts.version
 			a.Spec.Web = ts.web
@@ -568,8 +574,9 @@ func TestMakeStatefulSetSpecPeersWithoutClusterDomain(t *testing.T) {
 			Namespace: "monitoring",
 		},
 		Spec: monitoringv1.AlertmanagerSpec{
-			Version:  "v0.15.3",
-			Replicas: &replicas,
+			Version:             "v0.15.3",
+			Replicas:            &replicas,
+			PodManagementPolicy: &podManagementPolicy,
 		},
 	}
 
@@ -600,8 +607,9 @@ func TestMakeStatefulSetSpecPeersWithClusterDomain(t *testing.T) {
 			Namespace: "monitoring",
 		},
 		Spec: monitoringv1.AlertmanagerSpec{
-			Version:  "v0.15.3",
-			Replicas: &replicas,
+			Version:             "v0.15.3",
+			Replicas:            &replicas,
+			PodManagementPolicy: &podManagementPolicy,
 		},
 	}
 
@@ -633,6 +641,7 @@ func TestMakeStatefulSetSpecAdditionalPeers(t *testing.T) {
 	replicas := int32(1)
 	a.Spec.Replicas = &replicas
 	a.Spec.AdditionalPeers = []string{"example.com"}
+	a.Spec.PodManagementPolicy = &podManagementPolicy
 
 	statefulSet, err := makeStatefulSetSpec(&a, defaultTestConfig, nil)
 	if err != nil {
@@ -656,7 +665,8 @@ func TestMakeStatefulSetSpecNotificationTemplates(t *testing.T) {
 	replicas := int32(1)
 	a := monitoringv1.Alertmanager{
 		Spec: monitoringv1.AlertmanagerSpec{
-			Replicas: &replicas,
+			Replicas:            &replicas,
+			PodManagementPolicy: &podManagementPolicy,
 			AlertmanagerConfiguration: &monitoringv1.AlertmanagerConfiguration{
 				Templates: []monitoringv1.SecretOrConfigMap{
 					{
@@ -933,6 +943,7 @@ func TestClusterListenAddressForSingleReplica(t *testing.T) {
 	replicas := int32(1)
 	a.Spec.Version = operator.DefaultAlertmanagerVersion
 	a.Spec.Replicas = &replicas
+	a.Spec.PodManagementPolicy = &podManagementPolicy
 
 	statefulSet, err := makeStatefulSetSpec(&a, defaultTestConfig, nil)
 	if err != nil {
@@ -960,6 +971,7 @@ func TestClusterListenAddressForSingleReplicaWithForceEnableClusterMode(t *testi
 	a.Spec.Version = operator.DefaultAlertmanagerVersion
 	a.Spec.Replicas = &replicas
 	a.Spec.ForceEnableClusterMode = true
+	a.Spec.PodManagementPolicy = &podManagementPolicy
 
 	statefulSet, err := makeStatefulSetSpec(&a, defaultTestConfig, nil)
 	if err != nil {
@@ -986,6 +998,7 @@ func TestClusterListenAddressForMultiReplica(t *testing.T) {
 	replicas := int32(3)
 	a.Spec.Version = operator.DefaultAlertmanagerVersion
 	a.Spec.Replicas = &replicas
+	a.Spec.PodManagementPolicy = &podManagementPolicy
 
 	statefulSet, err := makeStatefulSetSpec(&a, defaultTestConfig, nil)
 	if err != nil {
@@ -1012,6 +1025,7 @@ func TestExpectStatefulSetMinReadySeconds(t *testing.T) {
 	replicas := int32(3)
 	a.Spec.Version = operator.DefaultAlertmanagerVersion
 	a.Spec.Replicas = &replicas
+	a.Spec.PodManagementPolicy = &podManagementPolicy
 
 	// assert defaults to zero if nil
 	statefulSet, err := makeStatefulSetSpec(&a, defaultTestConfig, nil)
@@ -1191,4 +1205,35 @@ func containsString(sub string) func(string) bool {
 
 func toPtr[T any](t T) *T {
 	return &t
+}
+
+func TestDefaultPodManagementPolicy(t *testing.T) {
+	sset, err := makeStatefulSet(&monitoringv1.Alertmanager{
+		Spec: monitoringv1.AlertmanagerSpec{},
+	}, defaultTestConfig, "", nil)
+
+	if err != nil {
+		t.Fatalf("Unexpected error while making StatefulSet: %v", err)
+	}
+
+	if sset.Spec.PodManagementPolicy != appsv1.ParallelPodManagement {
+		t.Fatal("Default PodManagementPolicy in StatefulSet not Parallel.")
+	}
+}
+
+func TestCustomPodManagementPolicy(t *testing.T) {
+	policy := appsv1.OrderedReadyPodManagement
+	sset, err := makeStatefulSet(&monitoringv1.Alertmanager{
+		Spec: monitoringv1.AlertmanagerSpec{
+			PodManagementPolicy: &policy,
+		},
+	}, defaultTestConfig, "", nil)
+
+	if err != nil {
+		t.Fatalf("Unexpected error while making StatefulSet: %v", err)
+	}
+
+	if sset.Spec.PodManagementPolicy != appsv1.OrderedReadyPodManagement {
+		t.Fatal("PodManagementPolicy in StatefulSet not OrderedReady.")
+	}
 }

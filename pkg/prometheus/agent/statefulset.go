@@ -39,6 +39,8 @@ const (
 	governingServiceName = "prometheus-agent-operated"
 )
 
+var defaultPodManagementPolicy = appsv1.ParallelPodManagement
+
 func makeStatefulSet(
 	name string,
 	p monitoringv1.PrometheusInterface,
@@ -58,6 +60,9 @@ func makeStatefulSet(
 
 	if cpf.Replicas == nil {
 		cpf.Replicas = &prompkg.MinReplicas
+	}
+	if cpf.PodManagementPolicy == nil {
+		cpf.PodManagementPolicy = &defaultPodManagementPolicy
 	}
 	intZero := int32(0)
 	if cpf.Replicas != nil && *cpf.Replicas < 0 {
@@ -396,7 +401,7 @@ func makeStatefulSetSpec(
 	return &appsv1.StatefulSetSpec{
 		ServiceName:         governingServiceName,
 		Replicas:            cpf.Replicas,
-		PodManagementPolicy: appsv1.ParallelPodManagement,
+		PodManagementPolicy: *p.GetCommonPrometheusFields().PodManagementPolicy,
 		UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 			Type: appsv1.RollingUpdateStatefulSetStrategyType,
 		},

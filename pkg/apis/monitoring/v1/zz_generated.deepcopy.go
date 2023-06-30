@@ -20,6 +20,7 @@
 package v1
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -382,6 +383,11 @@ func (in *AlertmanagerSpec) DeepCopyInto(out *AlertmanagerSpec) {
 	if in.AutomountServiceAccountToken != nil {
 		in, out := &in.AutomountServiceAccountToken, &out.AutomountServiceAccountToken
 		*out = new(bool)
+		**out = **in
+	}
+	if in.PodManagementPolicy != nil {
+		in, out := &in.PodManagementPolicy, &out.PodManagementPolicy
+		*out = new(appsv1.PodManagementPolicyType)
 		**out = **in
 	}
 }
@@ -786,6 +792,11 @@ func (in *CommonPrometheusFields) DeepCopyInto(out *CommonPrometheusFields) {
 		in, out := &in.TracingConfig, &out.TracingConfig
 		*out = new(PrometheusTracingConfig)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.PodManagementPolicy != nil {
+		in, out := &in.PodManagementPolicy, &out.PodManagementPolicy
+		*out = new(appsv1.PodManagementPolicyType)
+		**out = **in
 	}
 }
 
@@ -2694,6 +2705,11 @@ func (in *ThanosRulerSpec) DeepCopyInto(out *ThanosRulerSpec) {
 		in, out := &in.AdditionalArgs, &out.AdditionalArgs
 		*out = make([]Argument, len(*in))
 		copy(*out, *in)
+	}
+	if in.PodManagementPolicy != nil {
+		in, out := &in.PodManagementPolicy, &out.PodManagementPolicy
+		*out = new(appsv1.PodManagementPolicyType)
+		**out = **in
 	}
 }
 

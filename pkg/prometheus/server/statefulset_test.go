@@ -2807,3 +2807,36 @@ func TestPodHostNetworkConfig(t *testing.T) {
 		t.Fatalf("expected DNSPolicy configuration to match due to hostNetwork but failed")
 	}
 }
+
+func TestDefaultPodManagementPolicy(t *testing.T) {
+	sset, err := makeStatefulSetFromPrometheus(monitoringv1.Prometheus{
+		Spec: monitoringv1.PrometheusSpec{},
+	})
+
+	if err != nil {
+		t.Fatalf("Unexpected error while making StatefulSet: %v", err)
+	}
+
+	if sset.Spec.PodManagementPolicy != appsv1.ParallelPodManagement {
+		t.Fatal("Default PodManagementPolicy in StatefulSet not Parallel.")
+	}
+}
+
+func TestCustomPodManagementPolicy(t *testing.T) {
+	policy := appsv1.OrderedReadyPodManagement
+	sset, err := makeStatefulSetFromPrometheus(monitoringv1.Prometheus{
+		Spec: monitoringv1.PrometheusSpec{
+			CommonPrometheusFields: monitoringv1.CommonPrometheusFields{
+				PodManagementPolicy: &policy,
+			},
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("Unexpected error while making StatefulSet: %v", err)
+	}
+
+	if sset.Spec.PodManagementPolicy != appsv1.OrderedReadyPodManagement {
+		t.Fatal("PodManagementPolicy in StatefulSet not OrderedReady.")
+	}
+}

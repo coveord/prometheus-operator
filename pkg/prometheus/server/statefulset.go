@@ -41,6 +41,8 @@ const (
 	governingServiceName  = "prometheus-operated"
 )
 
+var defaultPodManagementPolicy = appsv1.ParallelPodManagement
+
 // TODO(ArthurSens): generalize it enough to be used by both server and agent.
 func makeStatefulSetService(p *monitoringv1.Prometheus, config operator.Config) *v1.Service {
 	p = p.DeepCopy()
@@ -121,6 +123,9 @@ func makeStatefulSet(
 
 	if cpf.Replicas == nil {
 		cpf.Replicas = &prompkg.MinReplicas
+	}
+	if cpf.PodManagementPolicy == nil {
+		cpf.PodManagementPolicy = &defaultPodManagementPolicy
 	}
 	intZero := int32(0)
 	if cpf.Replicas != nil && *cpf.Replicas < 0 {
@@ -498,7 +503,7 @@ func makeStatefulSetSpec(
 	return &appsv1.StatefulSetSpec{
 		ServiceName:         governingServiceName,
 		Replicas:            cpf.Replicas,
-		PodManagementPolicy: appsv1.ParallelPodManagement,
+		PodManagementPolicy: *p.GetCommonPrometheusFields().PodManagementPolicy,
 		UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 			Type: appsv1.RollingUpdateStatefulSetStrategyType,
 		},

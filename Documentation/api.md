@@ -735,6 +735,21 @@ bool
 If the service account has <code>automountServiceAccountToken: true</code>, set the field to <code>false</code> to opt out of automounting API credentials.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podManagementPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
+Kubernetes apps/v1.PodManagementPolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
+WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -2351,6 +2366,21 @@ breaking way.</p>
 </tr>
 <tr>
 <td>
+<code>podManagementPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
+Kubernetes apps/v1.PodManagementPolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
+WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>baseImage</code><br/>
 <em>
 string
@@ -3723,6 +3753,20 @@ operator itself) or when providing an invalid argument the reconciliation will
 fail and an error will be logged.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podManagementPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
+Kubernetes apps/v1.PodManagementPolicyType
+</a>
+</em>
+</td>
+<td>
+<p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
+WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -4870,6 +4914,21 @@ bool
 <em>(Optional)</em>
 <p>AutomountServiceAccountToken indicates whether a service account token should be automatically mounted in the pod.
 If the service account has <code>automountServiceAccountToken: true</code>, set the field to <code>false</code> to opt out of automounting API credentials.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podManagementPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
+Kubernetes apps/v1.PodManagementPolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
+WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
 </td>
 </tr>
 </tbody>
@@ -6349,6 +6408,21 @@ PrometheusTracingConfig
 <p>EXPERIMENTAL: TracingConfig configures tracing in Prometheus. This is an
 experimental feature, it may change in any upcoming release in a
 breaking way.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podManagementPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
+Kubernetes apps/v1.PodManagementPolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
+WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
 </td>
 </tr>
 </tbody>
@@ -9771,6 +9845,21 @@ breaking way.</p>
 </tr>
 <tr>
 <td>
+<code>podManagementPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
+Kubernetes apps/v1.PodManagementPolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
+WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>baseImage</code><br/>
 <em>
 string
@@ -12895,6 +12984,20 @@ operator itself) or when providing an invalid argument the reconciliation will
 fail and an error will be logged.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podManagementPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
+Kubernetes apps/v1.PodManagementPolicyType
+</a>
+</em>
+</td>
+<td>
+<p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
+WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="monitoring.coreos.com/v1.ThanosRulerStatus">ThanosRulerStatus
@@ -14917,6 +15020,21 @@ PrometheusTracingConfig
 <p>EXPERIMENTAL: TracingConfig configures tracing in Prometheus. This is an
 experimental feature, it may change in any upcoming release in a
 breaking way.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podManagementPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
+Kubernetes apps/v1.PodManagementPolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
+WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
 </td>
 </tr>
 </table>
@@ -17666,6 +17784,21 @@ PrometheusTracingConfig
 <p>EXPERIMENTAL: TracingConfig configures tracing in Prometheus. This is an
 experimental feature, it may change in any upcoming release in a
 breaking way.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podManagementPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
+Kubernetes apps/v1.PodManagementPolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
+WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
 </td>
 </tr>
 </tbody>

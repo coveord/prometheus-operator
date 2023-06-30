@@ -39,7 +39,8 @@ var (
 		ReloaderConfig:         operator.DefaultReloaderTestConfig.ReloaderConfig,
 		ThanosDefaultBaseImage: operator.DefaultThanosBaseImage,
 	}
-	emptyQueryEndpoints = []string{""}
+	emptyQueryEndpoints        = []string{""}
+	defaultPodManagementPolicy = appsv1.ParallelPodManagement
 )
 
 func TestStatefulSetLabelingAndAnnotations(t *testing.T) {
@@ -900,8 +901,9 @@ func TestSidecarResources(t *testing.T) {
 func TestStatefulSetMinReadySeconds(t *testing.T) {
 	tr := monitoringv1.ThanosRuler{
 		Spec: monitoringv1.ThanosRulerSpec{
-			MinReadySeconds: nil,
-			QueryEndpoints:  emptyQueryEndpoints,
+			MinReadySeconds:     nil,
+			QueryEndpoints:      emptyQueryEndpoints,
+			PodManagementPolicy: &defaultPodManagementPolicy,
 		},
 	}
 
@@ -926,9 +928,11 @@ func TestStatefulSetMinReadySeconds(t *testing.T) {
 }
 
 func TestStatefulSetServiceName(t *testing.T) {
+	podManagementPolicy := appsv1.ParallelPodManagement
 	tr := monitoringv1.ThanosRuler{
 		Spec: monitoringv1.ThanosRulerSpec{
-			QueryEndpoints: emptyQueryEndpoints,
+			QueryEndpoints:      emptyQueryEndpoints,
+			PodManagementPolicy: &podManagementPolicy,
 		},
 	}
 
@@ -1087,5 +1091,39 @@ func TestThanosVersion(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestDefaultPodManagementPolicy(t *testing.T) {
+	sset, err := makeStatefulSet(&monitoringv1.ThanosRuler{
+		Spec: monitoringv1.ThanosRulerSpec{
+			QueryEndpoints: emptyQueryEndpoints,
+		},
+	}, defaultTestConfig, nil, "")
+
+	if err != nil {
+		t.Fatalf("Unexpected error while making StatefulSet: %v", err)
+	}
+
+	if sset.Spec.PodManagementPolicy != appsv1.ParallelPodManagement {
+		t.Fatal("Default PodManagementPolicy in StatefulSet not Parallel.")
+	}
+}
+
+func TestCustomPodManagementPolicy(t *testing.T) {
+	policy := appsv1.OrderedReadyPodManagement
+	sset, err := makeStatefulSet(&monitoringv1.ThanosRuler{
+		Spec: monitoringv1.ThanosRulerSpec{
+			QueryEndpoints:      emptyQueryEndpoints,
+			PodManagementPolicy: &policy,
+		},
+	}, defaultTestConfig, nil, "")
+
+	if err != nil {
+		t.Fatalf("Unexpected error while making StatefulSet: %v", err)
+	}
+
+	if sset.Spec.PodManagementPolicy != appsv1.OrderedReadyPodManagement {
+		t.Fatal("PodManagementPolicy in StatefulSet not OrderedReady.")
 	}
 }

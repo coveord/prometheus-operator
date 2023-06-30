@@ -18,6 +18,7 @@ package v1
 
 import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -643,6 +644,14 @@ func (b *PrometheusSpecApplyConfiguration) WithPodTargetLabels(values ...string)
 // If called multiple times, the TracingConfig field is set to the value of the last call.
 func (b *PrometheusSpecApplyConfiguration) WithTracingConfig(value *PrometheusTracingConfigApplyConfiguration) *PrometheusSpecApplyConfiguration {
 	b.TracingConfig = value
+	return b
+}
+
+// WithPodManagementPolicy sets the PodManagementPolicy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PodManagementPolicy field is set to the value of the last call.
+func (b *PrometheusSpecApplyConfiguration) WithPodManagementPolicy(value appsv1.PodManagementPolicyType) *PrometheusSpecApplyConfiguration {
+	b.PodManagementPolicy = &value
 	return b
 }
 
