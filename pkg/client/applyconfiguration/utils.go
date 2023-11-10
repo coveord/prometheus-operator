@@ -73,8 +73,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &monitoringv1.EndpointApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Exemplars"):
 		return &monitoringv1.ExemplarsApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("GlobalSMTPConfig"):
+		return &monitoringv1.GlobalSMTPConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("HostAlias"):
 		return &monitoringv1.HostAliasApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("HostPort"):
+		return &monitoringv1.HostPortApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("HTTPConfig"):
 		return &monitoringv1.HTTPConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("MetadataConfig"):
@@ -183,8 +187,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &monitoringv1alpha1.AlertmanagerConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("AlertmanagerConfigSpec"):
 		return &monitoringv1alpha1.AlertmanagerConfigSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ConsulSDConfig"):
+		return &monitoringv1alpha1.ConsulSDConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("DayOfMonthRange"):
 		return &monitoringv1alpha1.DayOfMonthRangeApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("DiscordConfig"):
+		return &monitoringv1alpha1.DiscordConfigApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("DNSSDConfig"):
+		return &monitoringv1alpha1.DNSSDConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("EmailConfig"):
 		return &monitoringv1alpha1.EmailConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("FileSDConfig"):
@@ -197,6 +207,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &monitoringv1alpha1.InhibitRuleApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("KeyValue"):
 		return &monitoringv1alpha1.KeyValueApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("KubernetesSDConfig"):
+		return &monitoringv1alpha1.KubernetesSDConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Matcher"):
 		return &monitoringv1alpha1.MatcherApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("MuteTimeInterval"):
@@ -245,6 +257,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &monitoringv1alpha1.TimeRangeApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("VictorOpsConfig"):
 		return &monitoringv1alpha1.VictorOpsConfigApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("WebexConfig"):
+		return &monitoringv1alpha1.WebexConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("WebhookConfig"):
 		return &monitoringv1alpha1.WebhookConfigApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("WeChatConfig"):
@@ -257,6 +271,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &monitoringv1beta1.AlertmanagerConfigSpecApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("DayOfMonthRange"):
 		return &monitoringv1beta1.DayOfMonthRangeApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("DiscordConfig"):
+		return &monitoringv1beta1.DiscordConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("EmailConfig"):
 		return &monitoringv1beta1.EmailConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("HTTPConfig"):
@@ -305,6 +321,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &monitoringv1beta1.TimeRangeApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("VictorOpsConfig"):
 		return &monitoringv1beta1.VictorOpsConfigApplyConfiguration{}
+	case v1beta1.SchemeGroupVersion.WithKind("WebexConfig"):
+		return &monitoringv1beta1.WebexConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WebhookConfig"):
 		return &monitoringv1beta1.WebhookConfigApplyConfiguration{}
 	case v1beta1.SchemeGroupVersion.WithKind("WeChatConfig"):

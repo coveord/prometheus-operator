@@ -908,6 +908,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>TargetLimit defines a limit on the number of scraped targets that will be accepted.</p>
 </td>
 </tr>
@@ -919,6 +920,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on number of labels that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -931,6 +933,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels name that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -943,8 +946,23 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels value that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
 </td>
 </tr>
 <tr>
@@ -1192,6 +1210,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.</p>
 </td>
 </tr>
@@ -1203,6 +1222,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>TargetLimit defines a limit on the number of scraped targets that will be accepted.</p>
 </td>
 </tr>
@@ -1214,6 +1234,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on number of labels that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -1226,6 +1247,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels name that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -1238,8 +1260,23 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels value that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
 </td>
 </tr>
 </table>
@@ -2223,6 +2260,23 @@ greater than zero and less than <code>spec.enforcedLabelValueLengthLimit</code>.
 </tr>
 <tr>
 <td>
+<code>enforcedKeepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>When defined, enforcedKeepDroppedTargets specifies a global limit on the number of targets
+dropped by relabeling that will be kept in memory. The value overrides
+any <code>spec.keepDroppedTargets</code> set by
+ServiceMonitor, PodMonitor, Probe objects unless <code>spec.keepDroppedTargets</code> is
+greater than zero and less than <code>spec.enforcedKeepDroppedTargets</code>.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>enforcedBodySizeLimit</code><br/>
 <em>
 <a href="#monitoring.coreos.com/v1.ByteSize">
@@ -2370,6 +2424,10 @@ breaking way.</p>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
 Kubernetes apps/v1.PodManagementPolicyType
+<code>bodySizeLimit</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.ByteSize">
+ByteSize
 </a>
 </em>
 </td>
@@ -2377,6 +2435,87 @@ Kubernetes apps/v1.PodManagementPolicyType
 <em>(Optional)</em>
 <p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
 WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
+<p>BodySizeLimit defines per-scrape on response body size.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sampleLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetLimit defines a limit on the number of scraped targets that will be accepted.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on number of labels that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelNameLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels name that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelValueLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels value that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
 </td>
 </tr>
 <tr>
@@ -2952,6 +3091,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.</p>
 </td>
 </tr>
@@ -2963,6 +3103,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>TargetLimit defines a limit on the number of scraped targets that will be accepted.</p>
 </td>
 </tr>
@@ -2974,6 +3115,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on number of labels that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -2986,6 +3128,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels name that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -2998,8 +3141,23 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels value that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
 </td>
 </tr>
 <tr>
@@ -3793,8 +3951,8 @@ More info:
 (<em>Appears on:</em><a href="#monitoring.coreos.com/v1.CommonPrometheusFields">CommonPrometheusFields</a>)
 </p>
 <div>
-<p>APIServerConfig defines a host and auth methods to access apiserver.
-More info: <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config">https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config</a></p>
+<p>APIServerConfig defines how the Prometheus server connects to the Kubernetes API server.</p>
+<p>More info: <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config">https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config</a></p>
 </div>
 <table>
 <thead>
@@ -3812,8 +3970,8 @@ string
 </em>
 </td>
 <td>
-<p>Host of apiserver.
-A valid string consisting of a hostname or IP followed by an optional port number</p>
+<p>Kubernetes API address consisting of a hostname or IP address followed
+by an optional port number.</p>
 </td>
 </tr>
 <tr>
@@ -3826,18 +3984,10 @@ BasicAuth
 </em>
 </td>
 <td>
-<p>BasicAuth allow an endpoint to authenticate over basic authentication</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>bearerToken</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Bearer token for accessing apiserver.</p>
+<em>(Optional)</em>
+<p>BasicAuth configuration for the API server.</p>
+<p>Cannot be set at the same time as <code>authorization</code>, <code>bearerToken</code>, or
+<code>bearerTokenFile</code>.</p>
 </td>
 </tr>
 <tr>
@@ -3849,6 +3999,8 @@ string
 </td>
 <td>
 <p>File to read bearer token for accessing apiserver.</p>
+<p>Cannot be set at the same time as <code>basicAuth</code>, <code>authorization</code>, or <code>bearerToken</code>.</p>
+<p><em>Deprecated: this will be removed in a future release. Prefer using <code>authorization</code>.</em></p>
 </td>
 </tr>
 <tr>
@@ -3861,7 +4013,8 @@ TLSConfig
 </em>
 </td>
 <td>
-<p>TLS Config to use for accessing apiserver.</p>
+<em>(Optional)</em>
+<p>TLS Config to use for the API server.</p>
 </td>
 </tr>
 <tr>
@@ -3874,7 +4027,23 @@ Authorization
 </em>
 </td>
 <td>
-<p>Authorization section for accessing apiserver</p>
+<em>(Optional)</em>
+<p>Authorization section for the API server.</p>
+<p>Cannot be set at the same time as <code>basicAuth</code>, <code>bearerToken</code>, or
+<code>bearerTokenFile</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>bearerToken</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p><em>Warning: this field shouldn&rsquo;t be used because the token value appears
+in clear-text. Prefer using <code>authorization</code>.</em></p>
+<p><em>Deprecated: this will be removed in a future release.</em></p>
 </td>
 </tr>
 </tbody>
@@ -4007,7 +4176,7 @@ AlertmanagerGlobalConfig
 </p>
 <div>
 <p>AlertmanagerEndpoints defines a selection of a single Endpoints object
-containing alertmanager IPs to fire alerts against.</p>
+containing Alertmanager IPs to fire alerts against.</p>
 </div>
 <table>
 <thead>
@@ -4025,7 +4194,7 @@ string
 </em>
 </td>
 <td>
-<p>Namespace of Endpoints object.</p>
+<p>Namespace of the Endpoints object.</p>
 </td>
 </tr>
 <tr>
@@ -4036,7 +4205,7 @@ string
 </em>
 </td>
 <td>
-<p>Name of Endpoints object in Namespace.</p>
+<p>Name of the Endpoints object in the namespace.</p>
 </td>
 </tr>
 <tr>
@@ -4049,7 +4218,7 @@ k8s.io/apimachinery/pkg/util/intstr.IntOrString
 </em>
 </td>
 <td>
-<p>Port the Alertmanager API is exposed on.</p>
+<p>Port on which the Alertmanager API is exposed.</p>
 </td>
 </tr>
 <tr>
@@ -4084,7 +4253,8 @@ TLSConfig
 </em>
 </td>
 <td>
-<p>TLS Config to use for alertmanager connection.</p>
+<em>(Optional)</em>
+<p>TLS Config to use for Alertmanager.</p>
 </td>
 </tr>
 <tr>
@@ -4097,7 +4267,9 @@ BasicAuth
 </em>
 </td>
 <td>
-<p>BasicAuth allow an endpoint to authenticate over basic authentication</p>
+<em>(Optional)</em>
+<p>BasicAuth configuration for Alertmanager.</p>
+<p>Cannot be set at the same time as <code>bearerTokenFile</code>, or <code>authorization</code>.</p>
 </td>
 </tr>
 <tr>
@@ -4108,8 +4280,9 @@ string
 </em>
 </td>
 <td>
-<p>BearerTokenFile to read from filesystem to use when authenticating to
-Alertmanager.</p>
+<p>File to read bearer token for Alertmanager.</p>
+<p>Cannot be set at the same time as <code>basicAuth</code>, or <code>authorization</code>.</p>
+<p><em>Deprecated: this will be removed in a future release. Prefer using <code>authorization</code>.</em></p>
 </td>
 </tr>
 <tr>
@@ -4122,7 +4295,9 @@ SafeAuthorization
 </em>
 </td>
 <td>
-<p>Authorization section for this alertmanager endpoint</p>
+<em>(Optional)</em>
+<p>Authorization section for Alertmanager.</p>
+<p>Cannot be set at the same time as <code>basicAuth</code>, or <code>bearerTokenFile</code>.</p>
 </td>
 </tr>
 <tr>
@@ -4133,8 +4308,8 @@ string
 </em>
 </td>
 <td>
-<p>Version of the Alertmanager API that Prometheus uses to send alerts. It
-can be &ldquo;v1&rdquo; or &ldquo;v2&rdquo;.</p>
+<p>Version of the Alertmanager API that Prometheus uses to send alerts.
+It can be &ldquo;v1&rdquo; or &ldquo;v2&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -4147,6 +4322,7 @@ Duration
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Timeout is a per-target Alertmanager timeout when pushing alerts.</p>
 </td>
 </tr>
@@ -4158,6 +4334,7 @@ bool
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Whether to enable HTTP2.</p>
 </td>
 </tr>
@@ -4180,6 +4357,20 @@ See <a href="https://prometheus.io/docs/alerting/latest/configuration/#configura
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>smtp</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.GlobalSMTPConfig">
+GlobalSMTPConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Configures global SMTP parameters.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>resolveTimeout</code><br/>
@@ -5205,8 +5396,6 @@ bool
 (<em>Appears on:</em><a href="#monitoring.coreos.com/v1.APIServerConfig">APIServerConfig</a>, <a href="#monitoring.coreos.com/v1.RemoteReadSpec">RemoteReadSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteWriteSpec">RemoteWriteSpec</a>)
 </p>
 <div>
-<p>Authorization contains optional <code>Authorization</code> header configuration.
-This section is only understood by versions of Prometheus &gt;= 2.26.0.</p>
 </div>
 <table>
 <thead>
@@ -5224,8 +5413,9 @@ string
 </em>
 </td>
 <td>
-<p>Set the authentication type. Defaults to Bearer, Basic will cause an
-error</p>
+<p>Defines the authentication type. The value is case-insensitive.</p>
+<p>&ldquo;Basic&rdquo; is not a supported value.</p>
+<p>Default: &ldquo;Bearer&rdquo;</p>
 </td>
 </tr>
 <tr>
@@ -5238,7 +5428,7 @@ Kubernetes core/v1.SecretKeySelector
 </em>
 </td>
 <td>
-<p>The secret&rsquo;s key that contains the credentials of the request</p>
+<p>Selects a key of a Secret in the namespace that contains the credentials for authentication.</p>
 </td>
 </tr>
 <tr>
@@ -5249,7 +5439,7 @@ string
 </em>
 </td>
 <td>
-<p>File to read a secret from, mutually exclusive with Credentials (from SafeAuthorization)</p>
+<p>File to read a secret from, mutually exclusive with <code>credentials</code>.</p>
 </td>
 </tr>
 </tbody>
@@ -5283,7 +5473,7 @@ string
 <h3 id="monitoring.coreos.com/v1.BasicAuth">BasicAuth
 </h3>
 <p>
-(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.APIServerConfig">APIServerConfig</a>, <a href="#monitoring.coreos.com/v1.AlertmanagerEndpoints">AlertmanagerEndpoints</a>, <a href="#monitoring.coreos.com/v1.Endpoint">Endpoint</a>, <a href="#monitoring.coreos.com/v1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpoint">PodMetricsEndpoint</a>, <a href="#monitoring.coreos.com/v1.ProbeSpec">ProbeSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteReadSpec">RemoteReadSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteWriteSpec">RemoteWriteSpec</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPSDConfig">HTTPSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.ScrapeConfigSpec">ScrapeConfigSpec</a>, <a href="#monitoring.coreos.com/v1beta1.HTTPConfig">HTTPConfig</a>)
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.APIServerConfig">APIServerConfig</a>, <a href="#monitoring.coreos.com/v1.AlertmanagerEndpoints">AlertmanagerEndpoints</a>, <a href="#monitoring.coreos.com/v1.Endpoint">Endpoint</a>, <a href="#monitoring.coreos.com/v1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpoint">PodMetricsEndpoint</a>, <a href="#monitoring.coreos.com/v1.ProbeSpec">ProbeSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteReadSpec">RemoteReadSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteWriteSpec">RemoteWriteSpec</a>, <a href="#monitoring.coreos.com/v1alpha1.ConsulSDConfig">ConsulSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPSDConfig">HTTPSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.ScrapeConfigSpec">ScrapeConfigSpec</a>, <a href="#monitoring.coreos.com/v1beta1.HTTPConfig">HTTPConfig</a>)
 </p>
 <div>
 <p>BasicAuth allow an endpoint to authenticate over basic authentication
@@ -6269,6 +6459,23 @@ greater than zero and less than <code>spec.enforcedLabelValueLengthLimit</code>.
 </tr>
 <tr>
 <td>
+<code>enforcedKeepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>When defined, enforcedKeepDroppedTargets specifies a global limit on the number of targets
+dropped by relabeling that will be kept in memory. The value overrides
+any <code>spec.keepDroppedTargets</code> set by
+ServiceMonitor, PodMonitor, Probe objects unless <code>spec.keepDroppedTargets</code> is
+greater than zero and less than <code>spec.enforcedKeepDroppedTargets</code>.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>enforcedBodySizeLimit</code><br/>
 <em>
 <a href="#monitoring.coreos.com/v1.ByteSize">
@@ -6416,6 +6623,10 @@ breaking way.</p>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
 Kubernetes apps/v1.PodManagementPolicyType
+<code>bodySizeLimit</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.ByteSize">
+ByteSize
 </a>
 </em>
 </td>
@@ -6423,9 +6634,89 @@ Kubernetes apps/v1.PodManagementPolicyType
 <em>(Optional)</em>
 <p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
 WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
+<p>BodySizeLimit defines per-scrape on response body size.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</tr>
+<tr>
+<td>
+<code>sampleLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
 </td>
 </tr>
-</tbody>
+<tr>
+<td>
+<code>targetLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetLimit defines a limit on the number of scraped targets that will be accepted.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on number of labels that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelNameLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels name that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelValueLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels value that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
+>>>>>>> 52526e3
+</td>
+</tr>
 </table>
 <h3 id="monitoring.coreos.com/v1.Condition">Condition
 </h3>
@@ -6584,7 +6875,7 @@ The possible status values for this condition type are:
 <h3 id="monitoring.coreos.com/v1.Duration">Duration
 (<code>string</code> alias)</h3>
 <p>
-(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.AlertmanagerEndpoints">AlertmanagerEndpoints</a>, <a href="#monitoring.coreos.com/v1.AlertmanagerGlobalConfig">AlertmanagerGlobalConfig</a>, <a href="#monitoring.coreos.com/v1.CommonPrometheusFields">CommonPrometheusFields</a>, <a href="#monitoring.coreos.com/v1.Endpoint">Endpoint</a>, <a href="#monitoring.coreos.com/v1.MetadataConfig">MetadataConfig</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpoint">PodMetricsEndpoint</a>, <a href="#monitoring.coreos.com/v1.ProbeSpec">ProbeSpec</a>, <a href="#monitoring.coreos.com/v1.PrometheusSpec">PrometheusSpec</a>, <a href="#monitoring.coreos.com/v1.PrometheusTracingConfig">PrometheusTracingConfig</a>, <a href="#monitoring.coreos.com/v1.QuerySpec">QuerySpec</a>, <a href="#monitoring.coreos.com/v1.RemoteReadSpec">RemoteReadSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteWriteSpec">RemoteWriteSpec</a>, <a href="#monitoring.coreos.com/v1.Rule">Rule</a>, <a href="#monitoring.coreos.com/v1.RuleGroup">RuleGroup</a>, <a href="#monitoring.coreos.com/v1.TSDBSpec">TSDBSpec</a>, <a href="#monitoring.coreos.com/v1.ThanosRulerSpec">ThanosRulerSpec</a>, <a href="#monitoring.coreos.com/v1.ThanosSpec">ThanosSpec</a>, <a href="#monitoring.coreos.com/v1alpha1.FileSDConfig">FileSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPSDConfig">HTTPSDConfig</a>)
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.AlertmanagerEndpoints">AlertmanagerEndpoints</a>, <a href="#monitoring.coreos.com/v1.AlertmanagerGlobalConfig">AlertmanagerGlobalConfig</a>, <a href="#monitoring.coreos.com/v1.CommonPrometheusFields">CommonPrometheusFields</a>, <a href="#monitoring.coreos.com/v1.Endpoint">Endpoint</a>, <a href="#monitoring.coreos.com/v1.MetadataConfig">MetadataConfig</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpoint">PodMetricsEndpoint</a>, <a href="#monitoring.coreos.com/v1.ProbeSpec">ProbeSpec</a>, <a href="#monitoring.coreos.com/v1.PrometheusSpec">PrometheusSpec</a>, <a href="#monitoring.coreos.com/v1.PrometheusTracingConfig">PrometheusTracingConfig</a>, <a href="#monitoring.coreos.com/v1.QuerySpec">QuerySpec</a>, <a href="#monitoring.coreos.com/v1.RemoteReadSpec">RemoteReadSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteWriteSpec">RemoteWriteSpec</a>, <a href="#monitoring.coreos.com/v1.Rule">Rule</a>, <a href="#monitoring.coreos.com/v1.RuleGroup">RuleGroup</a>, <a href="#monitoring.coreos.com/v1.TSDBSpec">TSDBSpec</a>, <a href="#monitoring.coreos.com/v1.ThanosRulerSpec">ThanosRulerSpec</a>, <a href="#monitoring.coreos.com/v1.ThanosSpec">ThanosSpec</a>, <a href="#monitoring.coreos.com/v1alpha1.ConsulSDConfig">ConsulSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.DNSSDConfig">DNSSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.FileSDConfig">FileSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPSDConfig">HTTPSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.ScrapeConfigSpec">ScrapeConfigSpec</a>)
 </p>
 <div>
 <p>Duration is a valid time duration that can be parsed by Prometheus model.ParseDuration() function.
@@ -7170,9 +7461,134 @@ int64
 </em>
 </td>
 <td>
-<p>Maximum number of exemplars stored in memory for all series.
-If not set, Prometheus uses its default value.
-A value of zero or less than zero disables the storage.</p>
+<em>(Optional)</em>
+<p>Maximum number of exemplars stored in memory for all series.</p>
+<p>exemplar-storage itself must be enabled using the <code>spec.enableFeature</code>
+option for exemplars to be scraped in the first place.</p>
+<p>If not set, Prometheus uses its default value. A value of zero or less
+than zero disables the storage.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="monitoring.coreos.com/v1.GlobalSMTPConfig">GlobalSMTPConfig
+</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.AlertmanagerGlobalConfig">AlertmanagerGlobalConfig</a>)
+</p>
+<div>
+<p>GlobalSMTPConfig configures global SMTP parameters.
+See <a href="https://prometheus.io/docs/alerting/latest/configuration/#configuration-file">https://prometheus.io/docs/alerting/latest/configuration/#configuration-file</a></p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>from</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The default SMTP From header field.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>smartHost</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.HostPort">
+HostPort
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The default SMTP smarthost used for sending emails.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>hello</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The default hostname to identify to the SMTP server.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>authUsername</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SMTP Auth using CRAM-MD5, LOGIN and PLAIN. If empty, Alertmanager doesn&rsquo;t authenticate to the SMTP server.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>authPassword</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#secretkeyselector-v1-core">
+Kubernetes core/v1.SecretKeySelector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SMTP Auth using LOGIN and PLAIN.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>authIdentity</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SMTP Auth using PLAIN</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>authSecret</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#secretkeyselector-v1-core">
+Kubernetes core/v1.SecretKeySelector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SMTP Auth using CRAM-MD5.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>requireTLS</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The default SMTP TLS requirement.
+Note that Go does not support unencrypted connections to remote SMTP endpoints.</p>
 </td>
 </tr>
 </tbody>
@@ -7346,6 +7762,46 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="monitoring.coreos.com/v1.HostPort">HostPort
+</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.GlobalSMTPConfig">GlobalSMTPConfig</a>)
+</p>
+<div>
+<p>HostPort represents a &ldquo;host:port&rdquo; network address.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>host</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Defines the host&rsquo;s address, it can be a DNS name or a literal IP address.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>port</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Defines the host&rsquo;s port, it can be a literal port number or a port name.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="monitoring.coreos.com/v1.LabelName">LabelName
 (<code>string</code> alias)</h3>
 <p>
@@ -7378,7 +7834,7 @@ bool
 </em>
 </td>
 <td>
-<p>Whether metric metadata is sent to the remote storage or not.</p>
+<p>Defines whether metric metadata is sent to the remote storage or not.</p>
 </td>
 </tr>
 <tr>
@@ -7391,7 +7847,7 @@ Duration
 </em>
 </td>
 <td>
-<p>How frequently metric metadata is sent to the remote storage.</p>
+<p>Defines how frequently metric metadata is sent to the remote storage.</p>
 </td>
 </tr>
 </tbody>
@@ -7455,7 +7911,7 @@ Examples: <code>30s</code>, <code>1m</code>, <code>1h20m15s</code>, <code>15d</c
 <h3 id="monitoring.coreos.com/v1.OAuth2">OAuth2
 </h3>
 <p>
-(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.Endpoint">Endpoint</a>, <a href="#monitoring.coreos.com/v1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpoint">PodMetricsEndpoint</a>, <a href="#monitoring.coreos.com/v1.ProbeSpec">ProbeSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteReadSpec">RemoteReadSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteWriteSpec">RemoteWriteSpec</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1beta1.HTTPConfig">HTTPConfig</a>)
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.Endpoint">Endpoint</a>, <a href="#monitoring.coreos.com/v1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpoint">PodMetricsEndpoint</a>, <a href="#monitoring.coreos.com/v1.ProbeSpec">ProbeSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteReadSpec">RemoteReadSpec</a>, <a href="#monitoring.coreos.com/v1.RemoteWriteSpec">RemoteWriteSpec</a>, <a href="#monitoring.coreos.com/v1alpha1.ConsulSDConfig">ConsulSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1beta1.HTTPConfig">HTTPConfig</a>)
 </p>
 <div>
 <p>OAuth2 allows an endpoint to authenticate with OAuth2.
@@ -8064,6 +8520,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>TargetLimit defines a limit on the number of scraped targets that will be accepted.</p>
 </td>
 </tr>
@@ -8075,6 +8532,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on number of labels that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -8087,6 +8545,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels name that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -8099,8 +8558,23 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels value that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
 </td>
 </tr>
 <tr>
@@ -8303,6 +8777,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.</p>
 </td>
 </tr>
@@ -8314,6 +8789,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>TargetLimit defines a limit on the number of scraped targets that will be accepted.</p>
 </td>
 </tr>
@@ -8325,6 +8801,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on number of labels that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -8337,6 +8814,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels name that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -8349,8 +8827,23 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels value that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
 </td>
 </tr>
 </tbody>
@@ -9702,6 +10195,23 @@ greater than zero and less than <code>spec.enforcedLabelValueLengthLimit</code>.
 </tr>
 <tr>
 <td>
+<code>enforcedKeepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>When defined, enforcedKeepDroppedTargets specifies a global limit on the number of targets
+dropped by relabeling that will be kept in memory. The value overrides
+any <code>spec.keepDroppedTargets</code> set by
+ServiceMonitor, PodMonitor, Probe objects unless <code>spec.keepDroppedTargets</code> is
+greater than zero and less than <code>spec.enforcedKeepDroppedTargets</code>.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>enforcedBodySizeLimit</code><br/>
 <em>
 <a href="#monitoring.coreos.com/v1.ByteSize">
@@ -9849,6 +10359,10 @@ breaking way.</p>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
 Kubernetes apps/v1.PodManagementPolicyType
+<code>bodySizeLimit</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.ByteSize">
+ByteSize
 </a>
 </em>
 </td>
@@ -9856,6 +10370,87 @@ Kubernetes apps/v1.PodManagementPolicyType
 <em>(Optional)</em>
 <p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
 WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
+<p>BodySizeLimit defines per-scrape on response body size.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sampleLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetLimit defines a limit on the number of scraped targets that will be accepted.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on number of labels that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelNameLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels name that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelValueLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels value that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
 </td>
 </tr>
 <tr>
@@ -10682,9 +11277,9 @@ This is experimental feature and might change in the future.</p>
 (<em>Appears on:</em><a href="#monitoring.coreos.com/v1.Endpoint">Endpoint</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpoint">PodMetricsEndpoint</a>, <a href="#monitoring.coreos.com/v1.ProbeSpec">ProbeSpec</a>, <a href="#monitoring.coreos.com/v1.ProbeTargetIngress">ProbeTargetIngress</a>, <a href="#monitoring.coreos.com/v1.ProbeTargetStaticConfig">ProbeTargetStaticConfig</a>, <a href="#monitoring.coreos.com/v1.RemoteWriteSpec">RemoteWriteSpec</a>, <a href="#monitoring.coreos.com/v1alpha1.ScrapeConfigSpec">ScrapeConfigSpec</a>)
 </p>
 <div>
-<p>RelabelConfig allows dynamic rewriting of the label set, being applied to samples before ingestion.
-It defines <code>&lt;metric_relabel_configs&gt;</code>-section of Prometheus configuration.
-More info: <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/#metric_relabel_configs">https://prometheus.io/docs/prometheus/latest/configuration/configuration/#metric_relabel_configs</a></p>
+<p>RelabelConfig allows dynamic rewriting of the label set for targets, alerts,
+scraped samples and remote write samples.</p>
+<p>More info: <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config">https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config</a></p>
 </div>
 <table>
 <thead>
@@ -10704,9 +11299,10 @@ More info: <a href="https://prometheus.io/docs/prometheus/latest/configuration/c
 </em>
 </td>
 <td>
-<p>The source labels select values from existing labels. Their content is concatenated
-using the configured separator and matched against the configured regular expression
-for the replace, keep, and drop actions.</p>
+<em>(Optional)</em>
+<p>The source labels select values from existing labels. Their content is
+concatenated using the configured Separator and matched against the
+configured regular expression.</p>
 </td>
 </tr>
 <tr>
@@ -10717,7 +11313,7 @@ string
 </em>
 </td>
 <td>
-<p>Separator placed between concatenated source label values. default is &lsquo;;&rsquo;.</p>
+<p>Separator is the string between concatenated SourceLabels.</p>
 </td>
 </tr>
 <tr>
@@ -10728,8 +11324,10 @@ string
 </em>
 </td>
 <td>
-<p>Label to which the resulting value is written in a replace action.
-It is mandatory for replace actions. Regex capture groups are available.</p>
+<p>Label to which the resulting string is written in a replacement.</p>
+<p>It is mandatory for <code>Replace</code>, <code>HashMod</code>, <code>Lowercase</code>, <code>Uppercase</code>,
+<code>KeepEqual</code> and <code>DropEqual</code> actions.</p>
+<p>Regex capture groups are available.</p>
 </td>
 </tr>
 <tr>
@@ -10740,7 +11338,7 @@ string
 </em>
 </td>
 <td>
-<p>Regular expression against which the extracted value is matched. Default is &lsquo;(.*)&rsquo;</p>
+<p>Regular expression against which the extracted value is matched.</p>
 </td>
 </tr>
 <tr>
@@ -10752,6 +11350,7 @@ uint64
 </td>
 <td>
 <p>Modulus to take of the hash of the source label values.</p>
+<p>Only applicable when the action is <code>HashMod</code>.</p>
 </td>
 </tr>
 <tr>
@@ -10762,8 +11361,9 @@ string
 </em>
 </td>
 <td>
-<p>Replacement value against which a regex replace is performed if the
-regular expression matches. Regex capture groups are available. Default is &lsquo;$1&rsquo;</p>
+<p>Replacement value against which a Replace action is performed if the
+regular expression matches.</p>
+<p>Regex capture groups are available.</p>
 </td>
 </tr>
 <tr>
@@ -10774,8 +11374,10 @@ string
 </em>
 </td>
 <td>
-<p>Action to perform based on regex matching. Default is &lsquo;replace&rsquo;.
-uppercase and lowercase actions require Prometheus &gt;= 2.36.</p>
+<p>Action to perform based on the regex matching.</p>
+<p><code>Uppercase</code> and <code>Lowercase</code> actions require Prometheus &gt;= v2.36.0.
+<code>DropEqual</code> and <code>KeepEqual</code> actions require Prometheus &gt;= v2.41.0.</p>
+<p>Default: &ldquo;Replace&rdquo;</p>
 </td>
 </tr>
 </tbody>
@@ -10913,7 +11515,7 @@ string
 </em>
 </td>
 <td>
-<p>File from which to read bearer token for the URL.</p>
+<p>File from which to read the bearer token for the URL.</p>
 <p><em>Deprecated: this will be removed in a future release. Prefer using <code>authorization</code>.</em></p>
 </td>
 </tr>
@@ -10941,8 +11543,8 @@ string
 </em>
 </td>
 <td>
-<p><em>Warning: this field shouldn&rsquo;t used because the token value appears in
-clear-text. Prefer using <code>authorization</code>.</em></p>
+<p><em>Warning: this field shouldn&rsquo;t be used because the token value appears
+in clear-text. Prefer using <code>authorization</code>.</em></p>
 <p><em>Deprecated: this will be removed in a future release.</em></p>
 </td>
 </tr>
@@ -11193,8 +11795,8 @@ string
 </em>
 </td>
 <td>
-<p><em>Warning: this field shouldn&rsquo;t used because the token value appears in
-clear-text. Prefer using <code>authorization</code>.</em></p>
+<p><em>Warning: this field shouldn&rsquo;t be used because the token value appears
+in clear-text. Prefer using <code>authorization</code>.</em></p>
 <p><em>Deprecated: this will be removed in a future release.</em></p>
 </td>
 </tr>
@@ -11450,7 +12052,6 @@ Limit is supported starting with Prometheus &gt;= 2.31 and Thanos Ruler &gt;= 0.
 (<em>Appears on:</em><a href="#monitoring.coreos.com/v1.PrometheusSpec">PrometheusSpec</a>)
 </p>
 <div>
-<p>/&ndash;rules.*/ command-line arguments</p>
 </div>
 <table>
 <thead>
@@ -11470,6 +12071,8 @@ RulesAlert
 </em>
 </td>
 <td>
+<p>Defines the parameters of the Prometheus rules&rsquo; engine.</p>
+<p>Any update to these parameters trigger a restart of the pods.</p>
 </td>
 </tr>
 </tbody>
@@ -11480,7 +12083,6 @@ RulesAlert
 (<em>Appears on:</em><a href="#monitoring.coreos.com/v1.Rules">Rules</a>)
 </p>
 <div>
-<p>/&ndash;rules.alert.*/ command-line arguments</p>
 </div>
 <table>
 <thead>
@@ -11498,7 +12100,8 @@ string
 </em>
 </td>
 <td>
-<p>Max time to tolerate prometheus outage for restoring &lsquo;for&rsquo; state of alert.</p>
+<p>Max time to tolerate prometheus outage for restoring &lsquo;for&rsquo; state of
+alert.</p>
 </td>
 </tr>
 <tr>
@@ -11509,8 +12112,9 @@ string
 </em>
 </td>
 <td>
-<p>Minimum duration between alert and restored &lsquo;for&rsquo; state.
-This is maintained only for alerts with configured &lsquo;for&rsquo; time greater than grace period.</p>
+<p>Minimum duration between alert and restored &lsquo;for&rsquo; state.</p>
+<p>This is maintained only for alerts with a configured &lsquo;for&rsquo; time greater
+than the grace period.</p>
 </td>
 </tr>
 <tr>
@@ -11521,7 +12125,8 @@ string
 </em>
 </td>
 <td>
-<p>Minimum amount of time to wait before resending an alert to Alertmanager.</p>
+<p>Minimum amount of time to wait before resending an alert to
+Alertmanager.</p>
 </td>
 </tr>
 </tbody>
@@ -11529,11 +12134,12 @@ string
 <h3 id="monitoring.coreos.com/v1.SafeAuthorization">SafeAuthorization
 </h3>
 <p>
-(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.AlertmanagerEndpoints">AlertmanagerEndpoints</a>, <a href="#monitoring.coreos.com/v1.Authorization">Authorization</a>, <a href="#monitoring.coreos.com/v1.Endpoint">Endpoint</a>, <a href="#monitoring.coreos.com/v1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpoint">PodMetricsEndpoint</a>, <a href="#monitoring.coreos.com/v1.ProbeSpec">ProbeSpec</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPSDConfig">HTTPSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.ScrapeConfigSpec">ScrapeConfigSpec</a>, <a href="#monitoring.coreos.com/v1beta1.HTTPConfig">HTTPConfig</a>)
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.AlertmanagerEndpoints">AlertmanagerEndpoints</a>, <a href="#monitoring.coreos.com/v1.Authorization">Authorization</a>, <a href="#monitoring.coreos.com/v1.Endpoint">Endpoint</a>, <a href="#monitoring.coreos.com/v1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpoint">PodMetricsEndpoint</a>, <a href="#monitoring.coreos.com/v1.ProbeSpec">ProbeSpec</a>, <a href="#monitoring.coreos.com/v1alpha1.ConsulSDConfig">ConsulSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPSDConfig">HTTPSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.ScrapeConfigSpec">ScrapeConfigSpec</a>, <a href="#monitoring.coreos.com/v1beta1.HTTPConfig">HTTPConfig</a>)
 </p>
 <div>
 <p>SafeAuthorization specifies a subset of the Authorization struct, that is
-safe for use in Endpoints (no CredentialsFile field)</p>
+safe for use because it doesn&rsquo;t provide access to the Prometheus container&rsquo;s
+filesystem.</p>
 </div>
 <table>
 <thead>
@@ -11551,8 +12157,9 @@ string
 </em>
 </td>
 <td>
-<p>Set the authentication type. Defaults to Bearer, Basic will cause an
-error</p>
+<p>Defines the authentication type. The value is case-insensitive.</p>
+<p>&ldquo;Basic&rdquo; is not a supported value.</p>
+<p>Default: &ldquo;Bearer&rdquo;</p>
 </td>
 </tr>
 <tr>
@@ -11565,7 +12172,7 @@ Kubernetes core/v1.SecretKeySelector
 </em>
 </td>
 <td>
-<p>The secret&rsquo;s key that contains the credentials of the request</p>
+<p>Selects a key of a Secret in the namespace that contains the credentials for authentication.</p>
 </td>
 </tr>
 </tbody>
@@ -11573,7 +12180,7 @@ Kubernetes core/v1.SecretKeySelector
 <h3 id="monitoring.coreos.com/v1.SafeTLSConfig">SafeTLSConfig
 </h3>
 <p>
-(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpointTLSConfig">PodMetricsEndpointTLSConfig</a>, <a href="#monitoring.coreos.com/v1.ProbeTLSConfig">ProbeTLSConfig</a>, <a href="#monitoring.coreos.com/v1.TLSConfig">TLSConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.EmailConfig">EmailConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1beta1.EmailConfig">EmailConfig</a>, <a href="#monitoring.coreos.com/v1beta1.HTTPConfig">HTTPConfig</a>)
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1.PodMetricsEndpointTLSConfig">PodMetricsEndpointTLSConfig</a>, <a href="#monitoring.coreos.com/v1.ProbeTLSConfig">ProbeTLSConfig</a>, <a href="#monitoring.coreos.com/v1.TLSConfig">TLSConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.ConsulSDConfig">ConsulSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.EmailConfig">EmailConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPConfig">HTTPConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.HTTPSDConfig">HTTPSDConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.ScrapeConfigSpec">ScrapeConfigSpec</a>, <a href="#monitoring.coreos.com/v1beta1.EmailConfig">EmailConfig</a>, <a href="#monitoring.coreos.com/v1beta1.HTTPConfig">HTTPConfig</a>)
 </p>
 <div>
 <p>SafeTLSConfig specifies safe TLS configuration parameters.</p>
@@ -11819,6 +12426,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.</p>
 </td>
 </tr>
@@ -11830,6 +12438,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>TargetLimit defines a limit on the number of scraped targets that will be accepted.</p>
 </td>
 </tr>
@@ -11841,6 +12450,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on number of labels that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -11853,6 +12463,7 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels name that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
 </td>
@@ -11865,8 +12476,23 @@ uint64
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Per-scrape limit on length of labels value that will be accepted for a sample.
 Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
 </td>
 </tr>
 <tr>
@@ -12284,12 +12910,12 @@ Duration
 </em>
 </td>
 <td>
-<p>Configures how old an out-of-order/out-of-bounds sample can be w.r.t.
-the TSDB max time.
-An out-of-order/out-of-bounds sample is ingested into the TSDB as long as
-the timestamp of the sample is &gt;= (TSDB.MaxTime - outOfOrderTimeWindow).
-Out of order ingestion is an experimental feature and requires
-Prometheus &gt;= v2.39.0.</p>
+<p>Configures how old an out-of-order/out-of-bounds sample can be with
+respect to the TSDB max time.</p>
+<p>An out-of-order/out-of-bounds sample is ingested into the TSDB as long as
+the timestamp of the sample is &gt;= (TSDB.MaxTime - outOfOrderTimeWindow).</p>
+<p>Out of order ingestion is an experimental feature.</p>
+<p>It requires Prometheus &gt;= v2.39.0.</p>
 </td>
 </tr>
 </tbody>
@@ -14881,6 +15507,23 @@ greater than zero and less than <code>spec.enforcedLabelValueLengthLimit</code>.
 </tr>
 <tr>
 <td>
+<code>enforcedKeepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>When defined, enforcedKeepDroppedTargets specifies a global limit on the number of targets
+dropped by relabeling that will be kept in memory. The value overrides
+any <code>spec.keepDroppedTargets</code> set by
+ServiceMonitor, PodMonitor, Probe objects unless <code>spec.keepDroppedTargets</code> is
+greater than zero and less than <code>spec.enforcedKeepDroppedTargets</code>.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>enforcedBodySizeLimit</code><br/>
 <em>
 <a href="#monitoring.coreos.com/v1.ByteSize">
@@ -15028,6 +15671,10 @@ breaking way.</p>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
 Kubernetes apps/v1.PodManagementPolicyType
+<code>bodySizeLimit</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.ByteSize">
+ByteSize
 </a>
 </em>
 </td>
@@ -15035,6 +15682,87 @@ Kubernetes apps/v1.PodManagementPolicyType
 <em>(Optional)</em>
 <p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
 WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
+<p>BodySizeLimit defines per-scrape on response body size.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sampleLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetLimit defines a limit on the number of scraped targets that will be accepted.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on number of labels that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelNameLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels name that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelValueLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels value that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
 </td>
 </tr>
 </table>
@@ -15159,6 +15887,48 @@ ScrapeConfigSpec
 </tr>
 <tr>
 <td>
+<code>kubernetesSDConfigs</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.KubernetesSDConfig">
+[]KubernetesSDConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>KubernetesSDConfigs defines a list of Kubernetes service discovery configurations.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>consulSDConfigs</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.ConsulSDConfig">
+[]ConsulSDConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ConsulSDConfigs defines a list of Consul service discovery configurations.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dnsSDConfigs</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.DNSSDConfig">
+[]DNSSDConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DNSSDConfigs defines a list of DNS service discovery configurations.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>relabelings</code><br/>
 <em>
 <a href="#monitoring.coreos.com/v1.RelabelConfig">
@@ -15188,6 +15958,34 @@ string
 </tr>
 <tr>
 <td>
+<code>scrapeInterval</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.Duration">
+Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ScrapeInterval is the interval between consecutive scrapes.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>scrapeTimeout</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.Duration">
+Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ScrapeTimeout is the number of seconds to wait until a scrape request times out.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>honorTimestamps</code><br/>
 <em>
 bool
@@ -15208,6 +16006,31 @@ bool
 <td>
 <em>(Optional)</em>
 <p>HonorLabels chooses the metric&rsquo;s labels on collisions with target labels.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>params</code><br/>
+<em>
+map[string][]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Optional HTTP URL parameters</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>scheme</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Configures the protocol scheme used for requests.
+If empty, Prometheus uses HTTP by default.</p>
 </td>
 </tr>
 <tr>
@@ -15236,6 +16059,111 @@ SafeAuthorization
 <td>
 <em>(Optional)</em>
 <p>Authorization header to use on every scrape request.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tlsConfig</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.SafeTLSConfig">
+SafeTLSConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TLS configuration to use on every scrape request</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sampleLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetLimit defines a limit on the number of scraped targets that will be accepted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on number of labels that will be accepted for a sample.
+Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelNameLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels name that will be accepted for a sample.
+Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelValueLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels value that will be accepted for a sample.
+Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>metricRelabelings</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.RelabelConfig">
+[]RelabelConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MetricRelabelConfigs to apply to samples before ingestion.</p>
 </td>
 </tr>
 </table>
@@ -15322,6 +16250,384 @@ the resource&rsquo;s namespace.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="monitoring.coreos.com/v1alpha1.ConsulSDConfig">ConsulSDConfig
+</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1alpha1.ScrapeConfigSpec">ScrapeConfigSpec</a>)
+</p>
+<div>
+<p>ConsulSDConfig defines a Consul service discovery configuration
+See <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/#consul_sd_config">https://prometheus.io/docs/prometheus/latest/configuration/configuration/#consul_sd_config</a></p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>server</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>A valid string consisting of a hostname or IP followed by an optional port number.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tokenRef</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#secretkeyselector-v1-core">
+Kubernetes core/v1.SecretKeySelector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Consul ACL TokenRef, if not provided it will use the ACL from the local Consul Agent.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>datacenter</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Consul Datacenter name, if not provided it will use the local Consul Agent Datacenter.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Namespaces are only supported in Consul Enterprise.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>partition</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admin Partitions are only supported in Consul Enterprise.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>scheme</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HTTP Scheme default &ldquo;http&rdquo;</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>services</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>A list of services for which targets are retrieved. If omitted, all services are scraped.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tags</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>An optional list of tags used to filter nodes for a given service. Services must contain all tags in the list.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tag_separator</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The string by which Consul tags are joined into the tag label.
+If unset, Prometheus uses its default value.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>node_meta</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Node metadata key/value pairs to filter nodes for a given service.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>allow_stale</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Allow stale Consul results (see <a href="https://www.consul.io/api/features/consistency.html">https://www.consul.io/api/features/consistency.html</a>). Will reduce load on Consul.
+If unset, Prometheus uses its default value.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>refresh_interval</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.Duration">
+Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The time after which the provided names are refreshed.
+On large setup it might be a good idea to increase this value because the catalog will change all the time.
+If unset, Prometheus uses its default value.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>basicAuth</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.BasicAuth">
+BasicAuth
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>BasicAuth information to authenticate against the Consul Server.
+More info: <a href="https://prometheus.io/docs/operating/configuration/#endpoints">https://prometheus.io/docs/operating/configuration/#endpoints</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>authorization</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.SafeAuthorization">
+SafeAuthorization
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Authorization header configuration to authenticate against the Consul Server.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>oauth2</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.OAuth2">
+OAuth2
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Optional OAuth 2.0 configuration.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>proxy_url</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Optional proxy URL.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>no_proxy</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Comma-separated string that can contain IPs, CIDR notation, domain names
+that should be excluded from proxying. IP and domain names can
+contain port numbers.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>proxy_from_environment</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Use proxy URL indicated by environment variables (HTTP_PROXY, https_proxy, HTTPs_PROXY, https_proxy, and no_proxy)
+If unset, Prometheus uses its default value.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>proxy_connect_header</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#secretkeyselector-v1-core">
+map[string]k8s.io/api/core/v1.SecretKeySelector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies headers to send to proxies during CONNECT requests.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>follow_redirects</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Configure whether HTTP requests follow HTTP 3xx redirects.
+If unset, Prometheus uses its default value.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enable_http2</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Whether to enable HTTP2.
+If unset, Prometheus uses its default value.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tlsConfig</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.SafeTLSConfig">
+SafeTLSConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TLS Config</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="monitoring.coreos.com/v1alpha1.DNSSDConfig">DNSSDConfig
+</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1alpha1.ScrapeConfigSpec">ScrapeConfigSpec</a>)
+</p>
+<div>
+<p>DNSSDConfig allows specifying a set of DNS domain names which are periodically queried to discover a list of targets.
+The DNS servers to be contacted are read from /etc/resolv.conf.
+See <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/#dns_sd_config">https://prometheus.io/docs/prometheus/latest/configuration/configuration/#dns_sd_config</a></p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>names</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>A list of DNS domain names to be queried.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>refreshInterval</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.Duration">
+Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RefreshInterval configures the time after which the provided names are refreshed.
+If not set, Prometheus uses its default value.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The type of DNS query to perform. One of SRV, A, AAAA or MX.
+If not set, Prometheus uses its default value.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>port</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The port number used if the query type is not SRV
+Ignored for SRV records</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="monitoring.coreos.com/v1alpha1.DayOfMonthRange">DayOfMonthRange
 </h3>
 <p>
@@ -15358,6 +16664,90 @@ int
 </td>
 <td>
 <p>End of the inclusive range</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="monitoring.coreos.com/v1alpha1.DiscordConfig">DiscordConfig
+</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1alpha1.Receiver">Receiver</a>)
+</p>
+<div>
+<p>DiscordConfig configures notifications via Discord.
+See <a href="https://prometheus.io/docs/alerting/latest/configuration/#discord_config">https://prometheus.io/docs/alerting/latest/configuration/#discord_config</a></p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>sendResolved</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Whether or not to notify about resolved alerts.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiURL</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#secretkeyselector-v1-core">
+Kubernetes core/v1.SecretKeySelector
+</a>
+</em>
+</td>
+<td>
+<p>The secret&rsquo;s key that contains the Discord webhook URL.
+The secret needs to be in the same namespace as the AlertmanagerConfig
+object and accessible by the Prometheus Operator.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>title</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The template of the message&rsquo;s title.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The template of the message&rsquo;s body.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>httpConfig</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.HTTPConfig">
+HTTPConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HTTP client configuration.</p>
 </td>
 </tr>
 </tbody>
@@ -15611,7 +17001,7 @@ Duration
 <h3 id="monitoring.coreos.com/v1alpha1.HTTPConfig">HTTPConfig
 </h3>
 <p>
-(<em>Appears on:</em><a href="#monitoring.coreos.com/v1alpha1.OpsGenieConfig">OpsGenieConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.PagerDutyConfig">PagerDutyConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.PushoverConfig">PushoverConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.SNSConfig">SNSConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.SlackConfig">SlackConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.TelegramConfig">TelegramConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.VictorOpsConfig">VictorOpsConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.WeChatConfig">WeChatConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.WebhookConfig">WebhookConfig</a>)
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1alpha1.DiscordConfig">DiscordConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.OpsGenieConfig">OpsGenieConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.PagerDutyConfig">PagerDutyConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.PushoverConfig">PushoverConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.SNSConfig">SNSConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.SlackConfig">SlackConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.TelegramConfig">TelegramConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.VictorOpsConfig">VictorOpsConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.WeChatConfig">WeChatConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.WebexConfig">WebexConfig</a>, <a href="#monitoring.coreos.com/v1alpha1.WebhookConfig">WebhookConfig</a>)
 </p>
 <div>
 <p>HTTPConfig defines a client HTTP configuration.
@@ -15798,6 +17188,20 @@ SafeAuthorization
 <p>Authorization header configuration to authenticate against the target HTTP endpoint.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>tlsConfig</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.SafeTLSConfig">
+SafeTLSConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TLS configuration applying to the target HTTP endpoint.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="monitoring.coreos.com/v1alpha1.InhibitRule">InhibitRule
@@ -15897,6 +17301,37 @@ string
 </td>
 <td>
 <p>Value of the tuple.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="monitoring.coreos.com/v1alpha1.KubernetesSDConfig">KubernetesSDConfig
+</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1alpha1.ScrapeConfigSpec">ScrapeConfigSpec</a>)
+</p>
+<div>
+<p>KubernetesSDConfig allows retrieving scrape targets from Kubernetes&rsquo; REST API.
+See <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config">https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config</a></p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>role</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Role of the Kubernetes entities that should be discovered.
+Currently the only supported role is &ldquo;Node&rdquo;.</p>
 </td>
 </tr>
 </tbody>
@@ -17645,6 +19080,23 @@ greater than zero and less than <code>spec.enforcedLabelValueLengthLimit</code>.
 </tr>
 <tr>
 <td>
+<code>enforcedKeepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>When defined, enforcedKeepDroppedTargets specifies a global limit on the number of targets
+dropped by relabeling that will be kept in memory. The value overrides
+any <code>spec.keepDroppedTargets</code> set by
+ServiceMonitor, PodMonitor, Probe objects unless <code>spec.keepDroppedTargets</code> is
+greater than zero and less than <code>spec.enforcedKeepDroppedTargets</code>.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>enforcedBodySizeLimit</code><br/>
 <em>
 <a href="#monitoring.coreos.com/v1.ByteSize">
@@ -17792,6 +19244,10 @@ breaking way.</p>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podmanagementpolicytype-v1-apps">
 Kubernetes apps/v1.PodManagementPolicyType
+<code>bodySizeLimit</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.ByteSize">
+ByteSize
 </a>
 </em>
 </td>
@@ -17799,6 +19255,87 @@ Kubernetes apps/v1.PodManagementPolicyType
 <em>(Optional)</em>
 <p>StatefulSet PodManagementPolicy. Defaults to value of <code>Parallel</code>.
 WARNING: Read limitations of StatefulSets: <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations">https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations</a> before setting this value</p>
+<p>BodySizeLimit defines per-scrape on response body size.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sampleLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetLimit defines a limit on the number of scraped targets that will be accepted.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on number of labels that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelNameLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels name that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelValueLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels value that will be accepted for a sample.
+Only valid in Prometheus versions 2.45.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
 </td>
 </tr>
 </tbody>
@@ -18043,6 +19580,20 @@ string
 </tr>
 <tr>
 <td>
+<code>discordConfigs</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.DiscordConfig">
+[]DiscordConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>List of Discord configurations.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>slackConfigs</code><br/>
 <em>
 <a href="#monitoring.coreos.com/v1alpha1.SlackConfig">
@@ -18143,6 +19694,19 @@ string
 </td>
 <td>
 <p>List of Telegram configurations.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webexConfigs</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.WebexConfig">
+[]WebexConfig
+</a>
+</em>
+</td>
+<td>
+<p>List of Webex configurations.</p>
 </td>
 </tr>
 </tbody>
@@ -18524,6 +20088,48 @@ HTTPConfig
 </tr>
 <tr>
 <td>
+<code>kubernetesSDConfigs</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.KubernetesSDConfig">
+[]KubernetesSDConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>KubernetesSDConfigs defines a list of Kubernetes service discovery configurations.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>consulSDConfigs</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.ConsulSDConfig">
+[]ConsulSDConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ConsulSDConfigs defines a list of Consul service discovery configurations.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dnsSDConfigs</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.DNSSDConfig">
+[]DNSSDConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DNSSDConfigs defines a list of DNS service discovery configurations.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>relabelings</code><br/>
 <em>
 <a href="#monitoring.coreos.com/v1.RelabelConfig">
@@ -18553,6 +20159,34 @@ string
 </tr>
 <tr>
 <td>
+<code>scrapeInterval</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.Duration">
+Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ScrapeInterval is the interval between consecutive scrapes.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>scrapeTimeout</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.Duration">
+Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ScrapeTimeout is the number of seconds to wait until a scrape request times out.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>honorTimestamps</code><br/>
 <em>
 bool
@@ -18573,6 +20207,31 @@ bool
 <td>
 <em>(Optional)</em>
 <p>HonorLabels chooses the metric&rsquo;s labels on collisions with target labels.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>params</code><br/>
+<em>
+map[string][]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Optional HTTP URL parameters</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>scheme</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Configures the protocol scheme used for requests.
+If empty, Prometheus uses HTTP by default.</p>
 </td>
 </tr>
 <tr>
@@ -18601,6 +20260,111 @@ SafeAuthorization
 <td>
 <em>(Optional)</em>
 <p>Authorization header to use on every scrape request.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tlsConfig</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.SafeTLSConfig">
+SafeTLSConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TLS configuration to use on every scrape request</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sampleLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetLimit defines a limit on the number of scraped targets that will be accepted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on number of labels that will be accepted for a sample.
+Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelNameLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels name that will be accepted for a sample.
+Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>labelValueLengthLimit</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on length of labels value that will be accepted for a sample.
+Only valid in Prometheus versions 2.27.0 and newer.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keepDroppedTargets</code><br/>
+<em>
+uint64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Per-scrape limit on the number of targets dropped by relabeling
+that will be kept in memory. 0 means no limit.</p>
+<p>It requires Prometheus &gt;= v2.47.0.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>metricRelabelings</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1.RelabelConfig">
+[]RelabelConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MetricRelabelConfigs to apply to samples before ingestion.</p>
 </td>
 </tr>
 </tbody>
@@ -19202,9 +20966,25 @@ Kubernetes core/v1.SecretKeySelector
 </em>
 </td>
 <td>
-<p>Telegram bot token
+<em>(Optional)</em>
+<p>Telegram bot token. It is mutually exclusive with <code>botTokenFile</code>.
 The secret needs to be in the same namespace as the AlertmanagerConfig
 object and accessible by the Prometheus Operator.</p>
+<p>Either <code>botToken</code> or <code>botTokenFile</code> is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>botTokenFile</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>File to read the Telegram bot token from. It is mutually exclusive with <code>botToken</code>.
+Either <code>botToken</code> or <code>botTokenFile</code> is required.</p>
+<p>It requires Alertmanager &gt;= v0.26.0.</p>
 </td>
 </tr>
 <tr>
@@ -19410,6 +21190,14 @@ Time
 </tr>
 </tbody>
 </table>
+<h3 id="monitoring.coreos.com/v1alpha1.URL">URL
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1alpha1.WebexConfig">WebexConfig</a>)
+</p>
+<div>
+<p>URL represents a valid URL</p>
+</div>
 <h3 id="monitoring.coreos.com/v1alpha1.VictorOpsConfig">VictorOpsConfig
 </h3>
 <p>
@@ -19704,6 +21492,90 @@ HTTPConfig
 <td>
 <em>(Optional)</em>
 <p>HTTP client configuration.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="monitoring.coreos.com/v1alpha1.WebexConfig">WebexConfig
+</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1alpha1.Receiver">Receiver</a>)
+</p>
+<div>
+<p>WebexConfig configures notification via Cisco Webex
+See <a href="https://prometheus.io/docs/alerting/latest/configuration/#webex_config">https://prometheus.io/docs/alerting/latest/configuration/#webex_config</a></p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>sendResolved</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Whether to notify about resolved alerts.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiURL</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.URL">
+URL
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The Webex Teams API URL i.e. <a href="https://webexapis.com/v1/messages">https://webexapis.com/v1/messages</a>
+Provide if different from the default API URL.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>httpConfig</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1alpha1.HTTPConfig">
+HTTPConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The HTTP client&rsquo;s configuration.
+You must supply the bot token via the <code>httpConfig.authorization</code> field.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Message template</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>roomID</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ID of the Webex Teams room where to send the messages.</p>
 </td>
 </tr>
 </tbody>
@@ -20088,6 +21960,90 @@ int
 </tr>
 </tbody>
 </table>
+<h3 id="monitoring.coreos.com/v1beta1.DiscordConfig">DiscordConfig
+</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1beta1.Receiver">Receiver</a>)
+</p>
+<div>
+<p>DiscordConfig configures notifications via Discord.
+See <a href="https://prometheus.io/docs/alerting/latest/configuration/#discord_config">https://prometheus.io/docs/alerting/latest/configuration/#discord_config</a></p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>sendResolved</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Whether or not to notify about resolved alerts.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiURL</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#secretkeyselector-v1-core">
+Kubernetes core/v1.SecretKeySelector
+</a>
+</em>
+</td>
+<td>
+<p>The secret&rsquo;s key that contains the Discord webhook URL.
+The secret needs to be in the same namespace as the AlertmanagerConfig
+object and accessible by the Prometheus Operator.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>title</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The template of the message&rsquo;s title.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The template of the message&rsquo;s body.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>httpConfig</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1beta1.HTTPConfig">
+HTTPConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HTTP client configuration.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="monitoring.coreos.com/v1beta1.EmailConfig">EmailConfig
 </h3>
 <p>
@@ -20288,7 +22244,7 @@ SafeTLSConfig
 <h3 id="monitoring.coreos.com/v1beta1.HTTPConfig">HTTPConfig
 </h3>
 <p>
-(<em>Appears on:</em><a href="#monitoring.coreos.com/v1beta1.OpsGenieConfig">OpsGenieConfig</a>, <a href="#monitoring.coreos.com/v1beta1.PagerDutyConfig">PagerDutyConfig</a>, <a href="#monitoring.coreos.com/v1beta1.PushoverConfig">PushoverConfig</a>, <a href="#monitoring.coreos.com/v1beta1.SNSConfig">SNSConfig</a>, <a href="#monitoring.coreos.com/v1beta1.SlackConfig">SlackConfig</a>, <a href="#monitoring.coreos.com/v1beta1.TelegramConfig">TelegramConfig</a>, <a href="#monitoring.coreos.com/v1beta1.VictorOpsConfig">VictorOpsConfig</a>, <a href="#monitoring.coreos.com/v1beta1.WeChatConfig">WeChatConfig</a>, <a href="#monitoring.coreos.com/v1beta1.WebhookConfig">WebhookConfig</a>)
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1beta1.DiscordConfig">DiscordConfig</a>, <a href="#monitoring.coreos.com/v1beta1.OpsGenieConfig">OpsGenieConfig</a>, <a href="#monitoring.coreos.com/v1beta1.PagerDutyConfig">PagerDutyConfig</a>, <a href="#monitoring.coreos.com/v1beta1.PushoverConfig">PushoverConfig</a>, <a href="#monitoring.coreos.com/v1beta1.SNSConfig">SNSConfig</a>, <a href="#monitoring.coreos.com/v1beta1.SlackConfig">SlackConfig</a>, <a href="#monitoring.coreos.com/v1beta1.TelegramConfig">TelegramConfig</a>, <a href="#monitoring.coreos.com/v1beta1.VictorOpsConfig">VictorOpsConfig</a>, <a href="#monitoring.coreos.com/v1beta1.WeChatConfig">WeChatConfig</a>, <a href="#monitoring.coreos.com/v1beta1.WebexConfig">WebexConfig</a>, <a href="#monitoring.coreos.com/v1beta1.WebhookConfig">WebhookConfig</a>)
 </p>
 <div>
 <p>HTTPConfig defines a client HTTP configuration.
@@ -21486,6 +23442,19 @@ string
 </tr>
 <tr>
 <td>
+<code>discordConfigs</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1beta1.DiscordConfig">
+[]DiscordConfig
+</a>
+</em>
+</td>
+<td>
+<p>List of Slack configurations.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>slackConfigs</code><br/>
 <em>
 <a href="#monitoring.coreos.com/v1beta1.SlackConfig">
@@ -21586,6 +23555,19 @@ string
 </td>
 <td>
 <p>List of Telegram configurations.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webexConfigs</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1beta1.WebexConfig">
+[]WebexConfig
+</a>
+</em>
+</td>
+<td>
+<p>List of Webex configurations.</p>
 </td>
 </tr>
 </tbody>
@@ -22483,9 +24465,25 @@ SecretKeySelector
 </em>
 </td>
 <td>
-<p>Telegram bot token
+<em>(Optional)</em>
+<p>Telegram bot token. It is mutually exclusive with <code>botTokenFile</code>.
 The secret needs to be in the same namespace as the AlertmanagerConfig
 object and accessible by the Prometheus Operator.</p>
+<p>Either <code>botToken</code> or <code>botTokenFile</code> is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>botTokenFile</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>File to read the Telegram bot token from. It is mutually exclusive with <code>botToken</code>.
+Either <code>botToken</code> or <code>botTokenFile</code> is required.</p>
+<p>It requires Alertmanager &gt;= v0.26.0.</p>
 </td>
 </tr>
 <tr>
@@ -22733,6 +24731,14 @@ Time
 </tr>
 </tbody>
 </table>
+<h3 id="monitoring.coreos.com/v1beta1.URL">URL
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1beta1.WebexConfig">WebexConfig</a>)
+</p>
+<div>
+<p>URL represents a valid URL</p>
+</div>
 <h3 id="monitoring.coreos.com/v1beta1.VictorOpsConfig">VictorOpsConfig
 </h3>
 <p>
@@ -23027,6 +25033,88 @@ HTTPConfig
 <td>
 <em>(Optional)</em>
 <p>HTTP client configuration.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="monitoring.coreos.com/v1beta1.WebexConfig">WebexConfig
+</h3>
+<p>
+(<em>Appears on:</em><a href="#monitoring.coreos.com/v1beta1.Receiver">Receiver</a>)
+</p>
+<div>
+<p>WebexConfig configures notification via Cisco Webex
+See <a href="https://prometheus.io/docs/alerting/latest/configuration/#webex_config">https://prometheus.io/docs/alerting/latest/configuration/#webex_config</a></p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>sendResolved</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Whether to notify about resolved alerts.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiURL</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1beta1.URL">
+URL
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The Webex Teams API URL i.e. <a href="https://webexapis.com/v1/messages">https://webexapis.com/v1/messages</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>httpConfig</code><br/>
+<em>
+<a href="#monitoring.coreos.com/v1beta1.HTTPConfig">
+HTTPConfig
+</a>
+</em>
+</td>
+<td>
+<p>The HTTP client&rsquo;s configuration.
+You must use this configuration to supply the bot token as part of the HTTP <code>Authorization</code> header.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Message template</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>roomID</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ID of the Webex Teams room where to send the messages.</p>
 </td>
 </tr>
 </tbody>

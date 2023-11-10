@@ -558,6 +558,14 @@ func (b *PrometheusSpecApplyConfiguration) WithEnforcedLabelValueLengthLimit(val
 	return b
 }
 
+// WithEnforcedKeepDroppedTargets sets the EnforcedKeepDroppedTargets field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the EnforcedKeepDroppedTargets field is set to the value of the last call.
+func (b *PrometheusSpecApplyConfiguration) WithEnforcedKeepDroppedTargets(value uint64) *PrometheusSpecApplyConfiguration {
+	b.EnforcedKeepDroppedTargets = &value
+	return b
+}
+
 // WithEnforcedBodySizeLimit sets the EnforcedBodySizeLimit field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the EnforcedBodySizeLimit field is set to the value of the last call.
@@ -652,6 +660,62 @@ func (b *PrometheusSpecApplyConfiguration) WithTracingConfig(value *PrometheusTr
 // If called multiple times, the PodManagementPolicy field is set to the value of the last call.
 func (b *PrometheusSpecApplyConfiguration) WithPodManagementPolicy(value appsv1.PodManagementPolicyType) *PrometheusSpecApplyConfiguration {
 	b.PodManagementPolicy = &value
+	return b
+}
+
+// WithBodySizeLimit sets the BodySizeLimit field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the BodySizeLimit field is set to the value of the last call.
+func (b *PrometheusSpecApplyConfiguration) WithBodySizeLimit(value monitoringv1.ByteSize) *PrometheusSpecApplyConfiguration {
+	b.BodySizeLimit = &value
+	return b
+}
+
+// WithSampleLimit sets the SampleLimit field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SampleLimit field is set to the value of the last call.
+func (b *PrometheusSpecApplyConfiguration) WithSampleLimit(value uint64) *PrometheusSpecApplyConfiguration {
+	b.SampleLimit = &value
+	return b
+}
+
+// WithTargetLimit sets the TargetLimit field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the TargetLimit field is set to the value of the last call.
+func (b *PrometheusSpecApplyConfiguration) WithTargetLimit(value uint64) *PrometheusSpecApplyConfiguration {
+	b.TargetLimit = &value
+	return b
+}
+
+// WithLabelLimit sets the LabelLimit field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LabelLimit field is set to the value of the last call.
+func (b *PrometheusSpecApplyConfiguration) WithLabelLimit(value uint64) *PrometheusSpecApplyConfiguration {
+	b.LabelLimit = &value
+	return b
+}
+
+// WithLabelNameLengthLimit sets the LabelNameLengthLimit field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LabelNameLengthLimit field is set to the value of the last call.
+func (b *PrometheusSpecApplyConfiguration) WithLabelNameLengthLimit(value uint64) *PrometheusSpecApplyConfiguration {
+	b.LabelNameLengthLimit = &value
+	return b
+}
+
+// WithLabelValueLengthLimit sets the LabelValueLengthLimit field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LabelValueLengthLimit field is set to the value of the last call.
+func (b *PrometheusSpecApplyConfiguration) WithLabelValueLengthLimit(value uint64) *PrometheusSpecApplyConfiguration {
+	b.LabelValueLengthLimit = &value
+	return b
+}
+
+// WithKeepDroppedTargets sets the KeepDroppedTargets field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the KeepDroppedTargets field is set to the value of the last call.
+func (b *PrometheusSpecApplyConfiguration) WithKeepDroppedTargets(value uint64) *PrometheusSpecApplyConfiguration {
+	b.KeepDroppedTargets = &value
 	return b
 }
 

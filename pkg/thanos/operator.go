@@ -17,20 +17,12 @@ package thanos
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
-	"github.com/mitchellh/hashstructure"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
-	"github.com/prometheus-operator/prometheus-operator/pkg/informers"
-	"github.com/prometheus-operator/prometheus-operator/pkg/k8sutil"
-	"github.com/prometheus-operator/prometheus-operator/pkg/listwatch"
-	"github.com/prometheus-operator/prometheus-operator/pkg/operator"
-
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/mitchellh/hashstructure"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	appsv1 "k8s.io/api/apps/v1"
@@ -42,6 +34,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
+
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
+	"github.com/prometheus-operator/prometheus-operator/pkg/informers"
+	"github.com/prometheus-operator/prometheus-operator/pkg/k8sutil"
+	"github.com/prometheus-operator/prometheus-operator/pkg/listwatch"
+	"github.com/prometheus-operator/prometheus-operator/pkg/operator"
 )
 
 const (
@@ -79,8 +78,8 @@ type Config struct {
 	ReloaderConfig         operator.ContainerConfig
 	ThanosDefaultBaseImage string
 	Namespaces             operator.Namespaces
-	Annotations            operator.Annotations
-	Labels                 operator.Labels
+	Annotations            operator.Map
+	Labels                 operator.Map
 	LocalHost              string
 	LogLevel               string
 	LogFormat              string
@@ -225,7 +224,7 @@ func New(ctx context.Context, conf operator.Config, logger log.Logger, r prometh
 		}
 		nsInf := cache.NewSharedIndexInformer(
 			o.metrics.NewInstrumentedListerWatcher(
-				listwatch.NewUnprivilegedNamespaceListWatchFromClient(ctx, o.logger, o.kclient.CoreV1().RESTClient(), allowList, o.config.Namespaces.DenyList, fields.Everything()),
+				listwatch.NewUnprivilegedNamespaceListWatchFromClient(ctx, o.logger, o.kclient.CoreV1().RESTClient(), allowList, o.config.Namespaces.DenyList),
 			),
 			&v1.Namespace{}, nsResyncPeriod, cache.Indexers{},
 		)
@@ -470,10 +469,6 @@ func (o *Operator) Resolve(ss *appsv1.StatefulSet) metav1.Object {
 	return tr.(*monitoringv1.ThanosRuler)
 }
 
-func statefulSetNameFromThanosName(name string) string {
-	return "thanos-ruler-" + name
-}
-
 func statefulSetKeyToThanosKey(key string) string {
 	keyParts := strings.Split(key, "/")
 	return keyParts[0] + "/" + strings.TrimPrefix(keyParts[1], "thanos-ruler-")
@@ -599,7 +594,7 @@ func (o *Operator) sync(ctx context.Context, key string) error {
 
 	sset, err := makeStatefulSet(tr, o.config, ruleConfigMapNames, newSSetInputHash)
 	if err != nil {
-		return errors.Wrap(err, "making the statefulset, to update, failed")
+		return fmt.Errorf("failed to generate statefulset: %w", err)
 	}
 
 	operator.SanitizeSTS(sset)
@@ -654,7 +649,7 @@ func (o *Operator) getThanosRulerFromKey(key string) (*monitoringv1.ThanosRuler,
 
 // getStatefulSetFromThanosRulerKey returns a copy of the StatefulSet object
 // corresponding to the ThanosRuler object identified by key.
-// If the object is not found, it returns a nil pointer.
+// If the object is not found, it returns a nil pointer without error.
 func (o *Operator) getStatefulSetFromThanosRulerKey(key string) (*appsv1.StatefulSet, error) {
 	ssetName := thanosKeyToStatefulSetKey(key)
 
@@ -686,7 +681,7 @@ func (o *Operator) UpdateStatus(ctx context.Context, key string) error {
 		return errors.Wrap(err, "failed to get StatefulSet")
 	}
 
-	if sset == nil || o.rr.DeletionInProgress(sset) {
+	if sset != nil && o.rr.DeletionInProgress(sset) {
 		return nil
 	}
 
@@ -708,20 +703,34 @@ func (o *Operator) UpdateStatus(ctx context.Context, key string) error {
 	return nil
 }
 
-func createSSetInputHash(tr monitoringv1.ThanosRuler, c Config, ruleConfigMapNames []string, ss interface{}) (string, error) {
+func createSSetInputHash(tr monitoringv1.ThanosRuler, c Config, ruleConfigMapNames []string, ss appsv1.StatefulSetSpec) (string, error) {
+
+	// The controller should ignore any changes to RevisionHistoryLimit field because
+	// it may be modified by external actors.
+	// See https://github.com/prometheus-operator/prometheus-operator/issues/5712
+	ss.RevisionHistoryLimit = nil
+
 	hash, err := hashstructure.Hash(struct {
-		TR monitoringv1.ThanosRuler
-		C  Config
-		S  interface{}
-		R  []string `hash:"set"`
-	}{tr, c, ss, ruleConfigMapNames},
+		ThanosRulerLabels      map[string]string
+		ThanosRulerAnnotations map[string]string
+		ThanosRulerGeneration  int64
+		Config                 Config
+		StatefulSetSpec        appsv1.StatefulSetSpec
+		RuleConfigMaps         []string `hash:"set"`
+	}{
+		ThanosRulerLabels:      tr.Labels,
+		ThanosRulerAnnotations: tr.Annotations,
+		ThanosRulerGeneration:  tr.Generation,
+		Config:                 c,
+		StatefulSetSpec:        ss,
+		RuleConfigMaps:         ruleConfigMapNames,
+	},
 		nil,
 	)
 	if err != nil {
 		return "", errors.Wrap(
 			err,
-			"failed to calculate combined hash of ThanosRuler StatefulSet, ThanosRuler CRD, config and"+
-				" rule ConfigMap names",
+			"failed to calculate combined hash",
 		)
 	}
 
@@ -735,62 +744,6 @@ func ListOptions(name string) metav1.ListOptions {
 			thanosRulerLabel:         name,
 		})).String(),
 	}
-}
-
-// RulerStatus evaluates the current status of a ThanosRuler deployment with
-// respect to its specified resource object. It returns the status and a list of
-// pods that are not updated.
-// TODO(simonpasquier): remove after 0.66.0 is released.
-func RulerStatus(ctx context.Context, kclient kubernetes.Interface, tr *monitoringv1.ThanosRuler) (*monitoringv1.ThanosRulerStatus, []v1.Pod, error) {
-	res := &monitoringv1.ThanosRulerStatus{Paused: tr.Spec.Paused}
-
-	pods, err := kclient.CoreV1().Pods(tr.Namespace).List(ctx, ListOptions(tr.Name))
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "retrieving pods of failed")
-	}
-	sset, err := kclient.AppsV1().StatefulSets(tr.Namespace).Get(ctx, statefulSetNameFromThanosName(tr.Name), metav1.GetOptions{})
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "retrieving stateful set failed")
-	}
-
-	res.Replicas = int32(len(pods.Items))
-
-	var oldPods []v1.Pod
-	for _, pod := range pods.Items {
-		ready, err := k8sutil.PodRunningAndReady(pod)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "cannot determine pod ready state")
-		}
-		if ready {
-			res.AvailableReplicas++
-			// TODO(fabxc): detect other fields of the pod template
-			// that are mutable.
-			if needsUpdate(&pod, sset.Spec.Template) {
-				oldPods = append(oldPods, pod)
-			} else {
-				res.UpdatedReplicas++
-			}
-			continue
-		}
-		res.UnavailableReplicas++
-	}
-
-	return res, oldPods, nil
-}
-
-func needsUpdate(pod *v1.Pod, tmpl v1.PodTemplateSpec) bool {
-	c1 := pod.Spec.Containers[0]
-	c2 := tmpl.Spec.Containers[0]
-
-	if c1.Image != c2.Image {
-		return true
-	}
-
-	if !reflect.DeepEqual(c1.Args, c2.Args) {
-		return true
-	}
-
-	return false
 }
 
 func (o *Operator) enqueueForThanosRulerNamespace(nsName string) {

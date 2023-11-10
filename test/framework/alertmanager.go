@@ -29,13 +29,14 @@ import (
 	"github.com/prometheus/alertmanager/api/v2/models"
 	v1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/prometheus-operator/prometheus-operator/pkg/alertmanager"
 	"github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring"
@@ -278,7 +279,7 @@ func (f *Framework) PatchAlertmanager(ctx context.Context, name, ns string, spec
 		types.ApplyPatchType,
 		b,
 		metav1.PatchOptions{
-			Force:        pointer.Bool(true),
+			Force:        ptr.To(true),
 			FieldManager: "e2e-test",
 		},
 	)
@@ -296,7 +297,7 @@ func (f *Framework) ScaleAlertmanagerAndWaitUntilReady(ctx context.Context, name
 		name,
 		ns,
 		monitoringv1.AlertmanagerSpec{
-			Replicas: pointer.Int32(replicas),
+			Replicas: ptr.To(replicas),
 		},
 	)
 }
@@ -321,7 +322,12 @@ func (f *Framework) DeleteAlertmanagerAndWaitUntilGone(ctx context.Context, ns, 
 		return errors.Wrap(err, fmt.Sprintf("waiting for Alertmanager tpr (%s) to vanish timed out", name))
 	}
 
-	return f.KubeClient.CoreV1().Secrets(ns).Delete(ctx, fmt.Sprintf("alertmanager-%s", name), metav1.DeleteOptions{})
+	err = f.KubeClient.CoreV1().Secrets(ns).Delete(ctx, fmt.Sprintf("alertmanager-%s", name), metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete Alertmanager secret: %w", err)
+	}
+
+	return nil
 }
 
 func (f *Framework) WaitForAlertmanagerPodInitialized(ctx context.Context, ns, name string, amountPeers int, forceEnableClusterMode, https bool) error {
@@ -471,7 +477,7 @@ func (f *Framework) WaitForAlertmanagerFiringAlert(ctx context.Context, ns, svcN
 		}
 
 		for _, alert := range alerts {
-			if alert.Labels["alertname"] == alertName && alert.Status.State != pointer.String("firing") {
+			if alert.Labels["alertname"] == alertName && alert.Status.State != ptr.To("firing") {
 				return true, nil
 			}
 		}
@@ -499,7 +505,6 @@ func (f *Framework) PollAlertmanagerConfiguration(ctx context.Context, ns, amNam
 	var pollError error
 	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, time.Minute*5, false, func(ctx context.Context) (bool, error) {
 		amStatus, err := f.GetAlertmanagerPodStatus(ctx, ns, "alertmanager-"+amName+"-0", false)
-
 		if err != nil {
 			pollError = fmt.Errorf("failed to query Alertmanager: %s", err)
 			return false, nil

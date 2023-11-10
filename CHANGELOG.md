@@ -1,10 +1,47 @@
+## 0.68.0 / 2023-09-06
+
+* [FEATURE] Add support for Webex receiver to the AlertmanagerConfig CRD. #5305
+* [FEATURE] Add support for Bot Token File for Telegram receiver in AlermanagerConfig CRD. #5882
+* [FEATURE] Add support for MetricRelabelings to the ScrapeConfig CRD. #5805
+* [FEATURE] Add support for DNS service discovery fields to the ScrapeConfig CRD. #5866
+* [FEATURE] Add support for `keep_dropped_targets` to Prometheus, PrometheusAgent, ServiceMonitor, PodMonitor, Probe and ScrapeConfig CRDs. #5897
+* [FEATURE] Don't trigger reconcile loops if statefulsets have different `revisionHistoryLimit`. #5773
+* [ENHANCEMENT] Decrease CPU usage when reconciling ThanosRuler resources. #5784
+* [BUGFIX] Fix sharding in Probe CRD. #5735
+* [BUGFIX] Fix text-only email configs in AlertmanagerConfig CRD. #5804
+* [BUGFIX] Fix rejecting PodMonitor, ServiceMonitor, Probes and ScrapeConfigs with invalid relabelings. #5841 #5856
+* [BUGFIX] Fix Kubernetes Service Discovery in ScrapeConfig CRD. #5871
+* [BUGFIX] Fix reserved labels being overriden by external labels. #5888
+* [BUGFIX] Fix updating Status of Prometheus, Alertmanager and ThanosRuler even the operator fails to update their statefulsets. #5891
+
+## 0.67.1 / 2023-08-03
+
+* [BUGFIX] Avoid skipping `AlertmanagerConfig` resources for Alertmanager versions prior v0.25.0. #5788
+
+## 0.67.0 / 2023-07-27
+
+* [FEATURE] Add `spec.scheme` field to the ScrapeConfig CRD. #5679
+* [FEATURE] Add `spec.params` field to the ScrapeConfig CRD. #5750
+* [FEATURE] Add `spec.scrapeInterval` and `spec.scrapeTimeout` fields to the ScrapeConfig CRD. #5742
+* [FEATURE] Add support for TLS configuration to the ScrapeConfig CRD. #5710
+* [FEATURE] Add support for scrape limits to the ScrapeConfig CRD. #5658
+* [FEATURE] Add support for Kubernetes node service discovery to the ScrapeConfig CRD. #5675
+* [FEATURE] Add support for Consul service discovery to the ScrapeConfig CRD. #5709
+* [FEATURE] Add support for ScrapeConfig objects to `spec.excludedFromEnforcement` (Prometheus CRD). #5577
+* [FEATURE] Add support for global scrape limits to the Prometheus CRD. #5646
+* [FEATURE] Add `spec.alertmanagerConfiguration.smtp` field to the Alertmanager CRD. #5649
+* [FEATURE] Add support for Discord integration to the AlertmanagerConfig CRD. #5671
+* [ENHANCEMENT] (jsonnet) expose resource settings for the reloader. #5768
+* [BUGFIX] Avoid deadlock of the config reloader when the initial configuration is invalid. #5743
+* [BUGFIX] Reload the Alertmanager configuration when templates are modified. #5727
+
 ## 0.66.0 / 2023-06-14
 
 After research, we noticed how the default CPU requests of the config-reloader container were too high compared to the effective usage. We decided to decrease the default CPU requests from `100m` to `10m`. For most environments, this won't make a difference but if you need to increase the values, you can use the `-config-reloader-cpu-request` and `-config-reloader-cpu-limit` CLI arguments of the Prometheus operator.
 
 * [CHANGE] Decrease the default CPU requests for the config-reloader container from `100m` to `10m`. #5539
 * [FEATURE] Add `spec.alertmanagerConfiguration.global.PagerdutyURL` to the `Alertmanager` CRD. #5469
-* [FEATURE] Add `spec.valumeMounts` to the `ThanosRuler` CRD. #5541
+* [FEATURE] Add `spec.volumeMounts` to the `ThanosRuler` CRD. #5541
 * [FEATURE] Add `spec.remoteWrite.sendNativeHistograms` to `Prometheus` and `PrometheusAgent` CRDs. #5564
 * [FEATURE] Add `spec.tracingConfig` to `Prometheus` and `PrometheusAgent` CRDs. #5591 #5640
 * [FEATURE] Add `followRedirects` field to the `RemoteRead` configuration. #5612
@@ -18,7 +55,7 @@ After research, we noticed how the default CPU requests of the config-reloader c
 * [BUGFIX] Fix config-reloader not handling SIGTERM signal. #5617
 * [BUGFIX] Fix Thanos volume name when using VolumeClaimTemplate in `Prometheus` CRD. #5596
 * [BUGFIX] Fix WAL Compression configuration for `PrometheusAgent` CRD. #5625
-* [BUGFIX] FiX DNS name resolution for individual ThanosRuler pods. #5632
+* [BUGFIX] Fix DNS name resolution for individual ThanosRuler pods. #5632
 
 ## 0.65.2 / 2023-05-31
 

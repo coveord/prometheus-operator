@@ -96,6 +96,13 @@ func validateReceivers(receivers []monitoringv1alpha1.Receiver) (map[string]stru
 			return nil, errors.Wrapf(err, "failed to validate 'telegramConfig' - receiver %s", receiver.Name)
 		}
 
+		if err := validateWebexConfigs(receiver.WebexConfigs); err != nil {
+			return nil, errors.Wrapf(err, "failed to validate 'webexConfig' - receiver %s", receiver.Name)
+		}
+
+		if err := validateDiscordConfigs(receiver.DiscordConfigs); err != nil {
+			return nil, errors.Wrapf(err, "failed to validate 'discordConfig' - receiver %s", receiver.Name)
+		}
 	}
 
 	return receiverNames, nil
@@ -130,6 +137,15 @@ func validateOpsGenieConfigs(configs []monitoringv1alpha1.OpsGenieConfig) error 
 			}
 		}
 
+		if err := config.HTTPConfig.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateDiscordConfigs(configs []monitoringv1alpha1.DiscordConfig) error {
+	for _, config := range configs {
 		if err := config.HTTPConfig.Validate(); err != nil {
 			return err
 		}
@@ -284,12 +300,28 @@ func validateSnsConfigs(configs []monitoringv1alpha1.SNSConfig) error {
 func validateTelegramConfigs(configs []monitoringv1alpha1.TelegramConfig) error {
 	for _, config := range configs {
 
-		if config.BotToken == nil {
-			return fmt.Errorf("mandatory field %q is empty", "botToken")
+		if config.BotToken == nil && config.BotTokenFile == nil {
+			return fmt.Errorf("mandatory field botToken or botTokenfile is empty")
 		}
 
 		if config.ChatID == 0 {
 			return fmt.Errorf("mandatory field %q is empty", "chatID")
+		}
+
+		if err := config.HTTPConfig.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateWebexConfigs(configs []monitoringv1alpha1.WebexConfig) error {
+	for _, config := range configs {
+		if *config.APIURL != "" {
+			if _, err := validation.ValidateURL(string(*config.APIURL)); err != nil {
+				return errors.Wrap(err, "invalid 'apiURL'")
+			}
 		}
 
 		if err := config.HTTPConfig.Validate(); err != nil {

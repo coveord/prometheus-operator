@@ -29,17 +29,17 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/prometheus-operator/prometheus-operator/pkg/alertmanager/validation"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	monitoringv1alpha1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1alpha1"
-	"github.com/prometheus-operator/prometheus-operator/pkg/assets"
 	"github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/alertmanager/timeinterval"
 	"github.com/prometheus/common/model"
 	"gopkg.in/yaml.v2"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/prometheus-operator/prometheus-operator/pkg/alertmanager/validation"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1alpha1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1alpha1"
+	"github.com/prometheus-operator/prometheus-operator/pkg/assets"
 )
 
 const inhibitRuleNamespaceKey = "namespace"
@@ -368,6 +368,13 @@ func (cb *configBuilder) convertGlobalConfig(ctx context.Context, in *monitoring
 	}
 
 	out := &globalConfig{}
+
+	if in.SMTPConfig != nil {
+		if err := cb.convertSMTPConfig(ctx, out, *in.SMTPConfig, crKey); err != nil {
+			return nil, errors.Wrap(err, "invalid global smtpConfig")
+		}
+	}
+
 	if in.HTTPConfig != nil {
 		httpConfig, err := cb.convertHTTPConfigForV1(ctx, *in.HTTPConfig, crKey)
 		if err != nil {
@@ -501,7 +508,6 @@ func (cb *configBuilder) convertRoute(in *monitoringv1alpha1.Route, crKey types.
 // convertReceiver converts a monitoringv1alpha1.Receiver to an alertmanager.receiver
 func (cb *configBuilder) convertReceiver(ctx context.Context, in *monitoringv1alpha1.Receiver, crKey types.NamespacedName) (*receiver, error) {
 	var pagerdutyConfigs []*pagerdutyConfig
-
 	if l := len(in.PagerDutyConfigs); l > 0 {
 		pagerdutyConfigs = make([]*pagerdutyConfig, l)
 		for i := range in.PagerDutyConfigs {
@@ -510,6 +516,18 @@ func (cb *configBuilder) convertReceiver(ctx context.Context, in *monitoringv1al
 				return nil, errors.Wrapf(err, "PagerDutyConfig[%d]", i)
 			}
 			pagerdutyConfigs[i] = receiver
+		}
+	}
+
+	var discordConfigs []*discordConfig
+	if l := len(in.DiscordConfigs); l > 0 {
+		discordConfigs = make([]*discordConfig, l)
+		for i := range in.DiscordConfigs {
+			receiver, err := cb.convertDiscordConfig(ctx, in.DiscordConfigs[i], crKey)
+			if err != nil {
+				return nil, errors.Wrapf(err, "DiscordConfig[%d]", i)
+			}
+			discordConfigs[i] = receiver
 		}
 	}
 
@@ -621,10 +639,23 @@ func (cb *configBuilder) convertReceiver(ctx context.Context, in *monitoringv1al
 		}
 	}
 
+	var webexConfigs []*webexConfig
+	if l := len(in.WebexConfigs); l > 0 {
+		webexConfigs = make([]*webexConfig, l)
+		for i := range in.WebexConfigs {
+			receiver, err := cb.convertWebexConfig(ctx, in.WebexConfigs[i], crKey)
+			if err != nil {
+				return nil, errors.Wrapf(err, "WebexConfig[%d]", i)
+			}
+			webexConfigs[i] = receiver
+		}
+	}
+
 	return &receiver{
 		Name:             makeNamespacedString(in.Name, crKey),
 		OpsgenieConfigs:  opsgenieConfigs,
 		PagerdutyConfigs: pagerdutyConfigs,
+		DiscordConfigs:   discordConfigs,
 		SlackConfigs:     slackConfigs,
 		WebhookConfigs:   webhookConfigs,
 		WeChatConfigs:    weChatConfigs,
@@ -633,6 +664,7 @@ func (cb *configBuilder) convertReceiver(ctx context.Context, in *monitoringv1al
 		PushoverConfigs:  pushoverConfigs,
 		SNSConfigs:       snsConfigs,
 		TelegramConfigs:  telegramConfigs,
+		WebexConfigs:     webexConfigs,
 	}, nil
 }
 
@@ -665,6 +697,36 @@ func (cb *configBuilder) convertWebhookConfig(ctx context.Context, in monitoring
 
 	if in.MaxAlerts > 0 {
 		out.MaxAlerts = in.MaxAlerts
+	}
+
+	return out, nil
+}
+
+func (cb *configBuilder) convertDiscordConfig(ctx context.Context, in monitoringv1alpha1.DiscordConfig, crKey types.NamespacedName) (*discordConfig, error) {
+	out := &discordConfig{
+		VSendResolved: in.SendResolved,
+	}
+
+	if in.Title != nil && *in.Title != "" {
+		out.Title = *in.Title
+	}
+
+	if in.Message != nil && *in.Message != "" {
+		out.Message = *in.Message
+	}
+
+	url, err := cb.getValidURLFromSecret(ctx, crKey.Namespace, in.APIURL)
+	if err != nil {
+		return nil, err
+	}
+	out.WebhookURL = url
+
+	if in.HTTPConfig != nil {
+		httpConfig, err := cb.convertHTTPConfig(ctx, *in.HTTPConfig, crKey)
+		if err != nil {
+			return nil, err
+		}
+		out.HTTPConfig = httpConfig
 	}
 
 	return out, nil
@@ -905,6 +967,31 @@ func (cb *configBuilder) convertWeChatConfig(ctx context.Context, in monitoringv
 			return nil, errors.Wrap(err, "failed to get API secret")
 		}
 		out.APISecret = apiSecret
+	}
+
+	if in.HTTPConfig != nil {
+		httpConfig, err := cb.convertHTTPConfig(ctx, *in.HTTPConfig, crKey)
+		if err != nil {
+			return nil, err
+		}
+		out.HTTPConfig = httpConfig
+	}
+
+	return out, nil
+}
+
+func (cb *configBuilder) convertWebexConfig(ctx context.Context, in monitoringv1alpha1.WebexConfig, crKey types.NamespacedName) (*webexConfig, error) {
+	out := &webexConfig{
+		VSendResolved: in.SendResolved,
+		RoomID:        in.RoomID,
+	}
+
+	if in.APIURL != nil {
+		out.APIURL = string(*in.APIURL)
+	}
+
+	if in.Message != nil {
+		out.Message = *in.Message
 	}
 
 	if in.HTTPConfig != nil {
@@ -1297,6 +1384,45 @@ func makeNamespacedString(in string, crKey types.NamespacedName) string {
 		return ""
 	}
 	return crKey.Namespace + "/" + crKey.Name + "/" + in
+}
+
+func (cb *configBuilder) convertSMTPConfig(ctx context.Context, out *globalConfig, in monitoringv1.GlobalSMTPConfig, crKey types.NamespacedName) error {
+	if in.From != nil {
+		out.SMTPFrom = *in.From
+	}
+	if in.Hello != nil {
+		out.SMTPHello = *in.Hello
+	}
+	if in.AuthUsername != nil {
+		out.SMTPAuthUsername = *in.AuthUsername
+	}
+	if in.AuthIdentity != nil {
+		out.SMTPAuthIdentity = *in.AuthIdentity
+	}
+	out.SMTPRequireTLS = in.RequireTLS
+
+	if in.SmartHost != nil {
+		out.SMTPSmarthost.Host = in.SmartHost.Host
+		out.SMTPSmarthost.Port = in.SmartHost.Port
+	}
+
+	if in.AuthPassword != nil {
+		authPassword, err := cb.store.GetSecretKey(ctx, crKey.Namespace, *in.AuthPassword)
+		if err != nil {
+			return err
+		}
+		out.SMTPAuthPassword = authPassword
+	}
+
+	if in.AuthSecret != nil {
+		authSecret, err := cb.store.GetSecretKey(ctx, crKey.Namespace, *in.AuthSecret)
+		if err != nil {
+			return err
+		}
+		out.SMTPAuthSecret = authSecret
+	}
+
+	return nil
 }
 
 func (cb *configBuilder) convertHTTPConfigForV1(ctx context.Context, in monitoringv1.HTTPConfig, crKey types.NamespacedName) (*httpClientConfig, error) {
@@ -1853,7 +1979,9 @@ func (sc *snsConfig) sanitize(amVersion semver.Version, logger log.Logger) error
 }
 
 func (tc *telegramConfig) sanitize(amVersion semver.Version, logger log.Logger) error {
+	lessThanV0_26 := amVersion.LT(semver.MustParse("0.26.0"))
 	telegramAllowed := amVersion.GTE(semver.MustParse("0.24.0"))
+
 	if !telegramAllowed {
 		return fmt.Errorf(`invalid syntax in receivers config; telegram integration is available in Alertmanager >= 0.24.0`)
 	}
@@ -1862,8 +1990,20 @@ func (tc *telegramConfig) sanitize(amVersion semver.Version, logger log.Logger) 
 		return errors.Errorf("mandatory field %q is empty", "chatID")
 	}
 
-	if tc.BotToken == "" {
-		return fmt.Errorf("mandatory field %q is empty", "botToken")
+	if tc.BotTokenFile != "" && lessThanV0_26 {
+		msg := "'bot_token_file' supported in Alertmanager >= 0.26.0 only - dropping field from provided config"
+		level.Warn(logger).Log("msg", msg, "current_version", amVersion.String())
+		tc.BotTokenFile = ""
+	}
+
+	if tc.BotToken == "" && tc.BotTokenFile == "" {
+		return fmt.Errorf("missing mandatory field botToken or botTokenFile")
+	}
+
+	if tc.BotToken != "" && tc.BotTokenFile != "" {
+		msg := "'bot_token' and 'bot_token_file' are mutually exclusive for telegram receiver config - 'bot_token' has taken precedence"
+		level.Warn(logger).Log("msg", msg)
+		tc.BotTokenFile = ""
 	}
 
 	return tc.HTTPConfig.sanitize(amVersion, logger)

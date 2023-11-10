@@ -15,6 +15,7 @@
 package prometheus
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -24,20 +25,20 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/go-openapi/swag"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v2"
+	"gotest.tools/v3/golden"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/utils/ptr"
 
 	"github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringv1alpha1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1alpha1"
 	"github.com/prometheus-operator/prometheus-operator/pkg/assets"
 	"github.com/prometheus-operator/prometheus-operator/pkg/operator"
-
-	"gopkg.in/yaml.v2"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 )
 
 func defaultPrometheus() *monitoringv1.Prometheus {
@@ -67,7 +68,6 @@ func mustNewConfigGenerator(t *testing.T, p *monitoringv1.Prometheus) *ConfigGen
 	if p == nil {
 		p = &monitoringv1.Prometheus{}
 	}
-
 	logger := level.NewFilter(log.NewLogfmtLogger(os.Stderr), level.AllowWarn())
 
 	cg, err := NewConfigGenerator(log.With(logger, "test", t.Name()), p, false)
@@ -100,36 +100,49 @@ func TestConfigGeneration(t *testing.T) {
 }
 
 func TestGlobalSettings(t *testing.T) {
+	var (
+		expectedBodySizeLimit         monitoringv1.ByteSize = "1000MB"
+		expectedSampleLimit           uint64                = 10000
+		expectedTargetLimit           uint64                = 1000
+		expectedLabelLimit            uint64                = 50
+		expectedLabelNameLengthLimit  uint64                = 40
+		expectedLabelValueLengthLimit uint64                = 30
+		expectedkeepDroppedTargets    uint64                = 50
+	)
+
 	for _, tc := range []struct {
-		Scenario           string
-		EvaluationInterval monitoringv1.Duration
-		ScrapeInterval     monitoringv1.Duration
-		ScrapeTimeout      monitoringv1.Duration
-		ExternalLabels     map[string]string
-		QueryLogFile       string
-		Version            string
-		Expected           string
-		ExpectError        bool
+		Scenario                    string
+		EvaluationInterval          monitoringv1.Duration
+		ScrapeInterval              monitoringv1.Duration
+		ScrapeTimeout               monitoringv1.Duration
+		ExternalLabels              map[string]string
+		PrometheusExternalLabelName *string
+		ReplicaExternalLabelName    *string
+		QueryLogFile                string
+		Version                     string
+		BodySizeLimit               *monitoringv1.ByteSize
+		SampleLimit                 *uint64
+		TargetLimit                 *uint64
+		LabelLimit                  *uint64
+		LabelNameLengthLimit        *uint64
+		LabelValueLengthLimit       *uint64
+		KeepDroppedTargets          *uint64
+		ExpectError                 bool
+		Golden                      string
 	}{
 		{
 			Scenario:           "valid config",
 			Version:            "v2.15.2",
 			ScrapeInterval:     "15s",
 			EvaluationInterval: "30s",
-			Expected: `global:
-  evaluation_interval: 30s
-  scrape_interval: 15s
-  external_labels:
-    prometheus: /
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-`,
+			Golden:             "global_settings_valid_config_v2.15.2.golden",
 		},
 		{
 			Scenario:       "invalid scrape timeout specified when scrape interval specified",
 			Version:        "v2.30.0",
 			ScrapeInterval: "30s",
 			ScrapeTimeout:  "60s",
+			Golden:         "invalid_scrape_timeout_specified_when_scrape_interval_specified.golden",
 			ExpectError:    true,
 		},
 		{
@@ -138,15 +151,7 @@ scrape_configs: []
 			ScrapeInterval:     "60s",
 			ScrapeTimeout:      "10s",
 			EvaluationInterval: "30s",
-			Expected: `global:
-  evaluation_interval: 30s
-  scrape_interval: 60s
-  scrape_timeout: 10s
-  external_labels:
-    prometheus: /
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-`,
+			Golden:             "valid_scrape_timeout_along_with_valid_scrape_interval_specified.golden",
 		},
 		{
 			Scenario:           "external label specified",
@@ -157,16 +162,21 @@ scrape_configs: []
 				"key1": "value1",
 				"key2": "value2",
 			},
-			Expected: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    key1: value1
-    key2: value2
-    prometheus: /
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-`,
+			Golden: "external_label_specified.golden",
+		},
+		{
+			Scenario:           "external label specified along with reserved labels",
+			Version:            "v2.45.0",
+			ScrapeInterval:     "30s",
+			EvaluationInterval: "30s",
+			ExternalLabels: map[string]string{
+				"prometheus_replica": "1",
+				"prometheus":         "prometheus-k8s-1",
+				"some-other-key":     "some-value",
+			},
+			PrometheusExternalLabelName: ptr.To("prometheus"),
+			ReplicaExternalLabelName:    ptr.To("prometheus_replica"),
+			Golden:                      "external_label_specified_along_with_reserved_labels.golden",
 		},
 		{
 			Scenario:           "query log file",
@@ -174,15 +184,38 @@ scrape_configs: []
 			ScrapeInterval:     "30s",
 			EvaluationInterval: "30s",
 			QueryLogFile:       "test.log",
-			Expected: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: /
-    prometheus_replica: $(POD_NAME)
-  query_log_file: /var/log/prometheus/test.log
-scrape_configs: []
-`,
+			Golden:             "query_log_file.golden",
+		},
+		{
+			Scenario:           "valid global limits",
+			Version:            "v2.45.0",
+			ScrapeInterval:     "30s",
+			EvaluationInterval: "30s",
+			BodySizeLimit:      &expectedBodySizeLimit,
+			SampleLimit:        &expectedSampleLimit,
+			TargetLimit:        &expectedTargetLimit,
+			Golden:             "valid_global_limits.golden",
+		},
+		{
+			Scenario:              "valid global config with label limits",
+			Version:               "v2.45.0",
+			ScrapeInterval:        "30s",
+			EvaluationInterval:    "30s",
+			BodySizeLimit:         &expectedBodySizeLimit,
+			SampleLimit:           &expectedSampleLimit,
+			TargetLimit:           &expectedTargetLimit,
+			LabelLimit:            &expectedLabelLimit,
+			LabelNameLengthLimit:  &expectedLabelNameLengthLimit,
+			LabelValueLengthLimit: &expectedLabelValueLengthLimit,
+			Golden:                "valid_global_config_with_label_limits.golden",
+		},
+		{
+			Scenario:           "valid global config with keep dropped targets",
+			Version:            "v2.47.0",
+			ScrapeInterval:     "30s",
+			EvaluationInterval: "30s",
+			KeepDroppedTargets: &expectedkeepDroppedTargets,
+			Golden:             "valid_global_config_with_keep_dropped_targets.golden",
 		},
 	} {
 
@@ -190,11 +223,20 @@ scrape_configs: []
 			ObjectMeta: metav1.ObjectMeta{},
 			Spec: monitoringv1.PrometheusSpec{
 				CommonPrometheusFields: monitoringv1.CommonPrometheusFields{
-					ScrapeInterval: tc.ScrapeInterval,
-					ScrapeTimeout:  tc.ScrapeTimeout,
-					ExternalLabels: tc.ExternalLabels,
-					Version:        tc.Version,
-					TracingConfig:  nil,
+					ScrapeInterval:              tc.ScrapeInterval,
+					ScrapeTimeout:               tc.ScrapeTimeout,
+					ExternalLabels:              tc.ExternalLabels,
+					PrometheusExternalLabelName: tc.PrometheusExternalLabelName,
+					ReplicaExternalLabelName:    tc.ReplicaExternalLabelName,
+					Version:                     tc.Version,
+					TracingConfig:               nil,
+					BodySizeLimit:               tc.BodySizeLimit,
+					SampleLimit:                 tc.SampleLimit,
+					TargetLimit:                 tc.TargetLimit,
+					LabelLimit:                  tc.LabelLimit,
+					LabelNameLengthLimit:        tc.LabelNameLengthLimit,
+					LabelValueLengthLimit:       tc.LabelValueLengthLimit,
+					KeepDroppedTargets:          tc.KeepDroppedTargets,
 				},
 				EvaluationInterval: tc.EvaluationInterval,
 				QueryLogFile:       tc.QueryLogFile,
@@ -204,6 +246,7 @@ scrape_configs: []
 		cg := mustNewConfigGenerator(t, p)
 		t.Run(fmt.Sprintf("case %s", tc.Scenario), func(t *testing.T) {
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -228,7 +271,7 @@ scrape_configs: []
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, tc.Expected, string(cfg))
+			golden.Assert(t, string(cfg), tc.Golden)
 		})
 	}
 }
@@ -237,7 +280,7 @@ func TestNamespaceSetCorrectly(t *testing.T) {
 	type testCase struct {
 		ServiceMonitor           *monitoringv1.ServiceMonitor
 		IgnoreNamespaceSelectors bool
-		Expected                 string
+		Golden                   string
 	}
 
 	testcases := []testCase{
@@ -261,15 +304,7 @@ func TestNamespaceSetCorrectly(t *testing.T) {
 				},
 			},
 			IgnoreNamespaceSelectors: false,
-			Expected: `kubernetes_sd_configs:
-- role: endpoints
-  namespaces:
-    names:
-    - test1
-    - test2
-  attach_metadata:
-    node: true
-`,
+			Golden:                   "namespaces_from_MatchNames_are_returned_instead_of_the_current_namespace.golden",
 		},
 		// Test that 'Any' returns an empty list instead of the current namespace
 		{
@@ -288,9 +323,7 @@ func TestNamespaceSetCorrectly(t *testing.T) {
 				},
 			},
 			IgnoreNamespaceSelectors: false,
-			Expected: `kubernetes_sd_configs:
-- role: endpoints
-`,
+			Golden:                   "Any_returns_an_empty_list_instead_of_the_current_namespace.golden",
 		},
 		// Test that Any takes precedence over MatchNames
 		{
@@ -310,9 +343,7 @@ func TestNamespaceSetCorrectly(t *testing.T) {
 				},
 			},
 			IgnoreNamespaceSelectors: false,
-			Expected: `kubernetes_sd_configs:
-- role: endpoints
-`,
+			Golden:                   "Any_takes_precedence_over_MatchNames.golden",
 		},
 		// Test that IgnoreNamespaceSelectors overrides Any and MatchNames
 		{
@@ -332,12 +363,7 @@ func TestNamespaceSetCorrectly(t *testing.T) {
 				},
 			},
 			IgnoreNamespaceSelectors: true,
-			Expected: `kubernetes_sd_configs:
-- role: endpoints
-  namespaces:
-    names:
-    - default
-`,
+			Golden:                   "IgnoreNamespaceSelectors_overrides_Any_and_MatchNames.golden",
 		},
 	}
 
@@ -364,7 +390,7 @@ func TestNamespaceSetCorrectly(t *testing.T) {
 		c := cg.generateK8SSDConfig(tc.ServiceMonitor.Spec.NamespaceSelector, tc.ServiceMonitor.Namespace, nil, nil, kubernetesSDRoleEndpoint, attachMetaConfig)
 		s, err := yaml.Marshal(yaml.MapSlice{c})
 		require.NoError(t, err)
-		require.Equal(t, tc.Expected, string(s))
+		golden.Assert(t, string(s), tc.Golden)
 	}
 }
 
@@ -407,120 +433,7 @@ func TestNamespaceSetCorrectlyForPodMonitor(t *testing.T) {
 	s, err := yaml.Marshal(yaml.MapSlice{c})
 	require.NoError(t, err)
 
-	expected := `kubernetes_sd_configs:
-- role: pod
-  namespaces:
-    names:
-    - test
-  attach_metadata:
-    node: true
-`
-
-	require.Equal(t, expected, string(s))
-}
-
-func TestProbeStaticTargetsConfigGeneration(t *testing.T) {
-	p := defaultPrometheus()
-
-	cg := mustNewConfigGenerator(t, p)
-	cfg, err := cg.GenerateServerConfiguration(
-		p.Spec.EvaluationInterval,
-		p.Spec.QueryLogFile,
-		p.Spec.RuleSelector,
-		p.Spec.Exemplars,
-		p.Spec.TSDB,
-		p.Spec.Alerting,
-		p.Spec.RemoteRead,
-		nil,
-		nil,
-		map[string]*monitoringv1.Probe{
-			"probe1": {
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testprobe1",
-					Namespace: "default",
-					Labels: map[string]string{
-						"group": "group1",
-					},
-				},
-				Spec: monitoringv1.ProbeSpec{
-					ProberSpec: monitoringv1.ProberSpec{
-						Scheme:   "http",
-						URL:      "blackbox.exporter.io",
-						Path:     "/probe",
-						ProxyURL: "socks://myproxy:9095",
-					},
-					Module: "http_2xx",
-					Targets: monitoringv1.ProbeTargets{
-						StaticConfig: &monitoringv1.ProbeTargetStaticConfig{
-							Targets: []string{
-								"prometheus.io",
-								"promcon.io",
-							},
-							Labels: map[string]string{
-								"static": "label",
-							},
-							RelabelConfigs: []*monitoringv1.RelabelConfig{
-								{
-									TargetLabel: "foo",
-									Replacement: "bar",
-									Action:      "replace",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		nil,
-		&assets.Store{},
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: probe/default/testprobe1
-  honor_timestamps: true
-  metrics_path: /probe
-  scheme: http
-  proxy_url: socks://myproxy:9095
-  params:
-    module:
-    - http_2xx
-  static_configs:
-  - targets:
-    - prometheus.io
-    - promcon.io
-    labels:
-      namespace: default
-      static: label
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - source_labels:
-    - __address__
-    target_label: __param_target
-  - source_labels:
-    - __param_target
-    target_label: instance
-  - target_label: __address__
-    replacement: blackbox.exporter.io
-  - target_label: foo
-    replacement: bar
-    action: replace
-  metric_relabel_configs: []
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(s), "NamespaceSetCorrectlyForPodMonitor.golden")
 }
 
 func TestProbeStaticTargetsConfigGenerationWithLabelEnforce(t *testing.T) {
@@ -529,6 +442,7 @@ func TestProbeStaticTargetsConfigGenerationWithLabelEnforce(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -583,50 +497,7 @@ func TestProbeStaticTargetsConfigGenerationWithLabelEnforce(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: probe/default/testprobe1
-  honor_timestamps: true
-  metrics_path: /probe
-  scheme: http
-  params:
-    module:
-    - http_2xx
-  static_configs:
-  - targets:
-    - prometheus.io
-    - promcon.io
-    labels:
-      namespace: custom
-      static: label
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - source_labels:
-    - __address__
-    target_label: __param_target
-  - source_labels:
-    - __param_target
-    target_label: instance
-  - target_label: __address__
-    replacement: blackbox.exporter.io
-  - target_label: namespace
-    replacement: default
-  metric_relabel_configs:
-  - regex: noisy_labels.*
-    action: labeldrop
-  - target_label: namespace
-    replacement: default
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "ProbeStaticTargetsConfigGenerationWithLabelEnforce.golden")
 }
 
 func TestProbeStaticTargetsConfigGenerationWithJobName(t *testing.T) {
@@ -634,6 +505,7 @@ func TestProbeStaticTargetsConfigGenerationWithJobName(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -679,45 +551,7 @@ func TestProbeStaticTargetsConfigGenerationWithJobName(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: probe/default/testprobe1
-  honor_timestamps: true
-  metrics_path: /probe
-  scheme: http
-  params:
-    module:
-    - http_2xx
-  static_configs:
-  - targets:
-    - prometheus.io
-    - promcon.io
-    labels:
-      namespace: default
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - target_label: job
-    replacement: blackbox
-  - source_labels:
-    - __address__
-    target_label: __param_target
-  - source_labels:
-    - __param_target
-    target_label: instance
-  - target_label: __address__
-    replacement: blackbox.exporter.io
-  metric_relabel_configs: []
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "ProbeStaticTargetsConfigGenerationWithJobName.golden")
 }
 
 func TestProbeStaticTargetsConfigGenerationWithoutModule(t *testing.T) {
@@ -725,6 +559,7 @@ func TestProbeStaticTargetsConfigGenerationWithoutModule(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -769,42 +604,7 @@ func TestProbeStaticTargetsConfigGenerationWithoutModule(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: probe/default/testprobe1
-  honor_timestamps: true
-  metrics_path: /probe
-  scheme: http
-  static_configs:
-  - targets:
-    - prometheus.io
-    - promcon.io
-    labels:
-      namespace: default
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - target_label: job
-    replacement: blackbox
-  - source_labels:
-    - __address__
-    target_label: __param_target
-  - source_labels:
-    - __param_target
-    target_label: instance
-  - target_label: __address__
-    replacement: blackbox.exporter.io
-  metric_relabel_configs: []
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "ProbeStaticTargetsConfigGenerationWithoutModule.golden")
 }
 
 func TestProbeIngressSDConfigGeneration(t *testing.T) {
@@ -812,6 +612,7 @@ func TestProbeIngressSDConfigGeneration(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -868,82 +669,16 @@ func TestProbeIngressSDConfigGeneration(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: probe/default/testprobe1
-  honor_timestamps: true
-  metrics_path: /probe
-  scheme: http
-  params:
-    module:
-    - http_2xx
-  kubernetes_sd_configs:
-  - role: ingress
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_ingress_label_prometheus_io_probe
-    - __meta_kubernetes_ingress_labelpresent_prometheus_io_probe
-    regex: (true);true
-  - source_labels:
-    - __meta_kubernetes_ingress_scheme
-    - __address__
-    - __meta_kubernetes_ingress_path
-    separator: ;
-    regex: (.+);(.+);(.+)
-    target_label: __param_target
-    replacement: ${1}://${2}${3}
-    action: replace
-  - source_labels:
-    - __meta_kubernetes_namespace
-    target_label: namespace
-  - source_labels:
-    - __meta_kubernetes_ingress_name
-    target_label: ingress
-  - source_labels:
-    - __address__
-    separator: ;
-    regex: (.*)
-    target_label: __tmp_ingress_address
-    replacement: $1
-    action: replace
-  - source_labels:
-    - __param_target
-    target_label: instance
-  - target_label: __address__
-    replacement: blackbox.exporter.io
-  - target_label: foo
-    replacement: bar
-    action: replace
-  - source_labels:
-    - __param_target
-    target_label: __tmp_hash
-    modulus: 1
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-  metric_relabel_configs: []
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "ProbeIngressSDConfigGeneration.golden")
 }
 
 func TestProbeIngressSDConfigGenerationWithShards(t *testing.T) {
 	p := defaultPrometheus()
-	p.Spec.Shards = pointer.Int32(2)
+	p.Spec.Shards = ptr.To(int32(2))
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -999,74 +734,7 @@ func TestProbeIngressSDConfigGenerationWithShards(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: probe/default/testprobe1
-  honor_timestamps: true
-  metrics_path: /probe
-  scheme: http
-  params:
-    module:
-    - http_2xx
-  kubernetes_sd_configs:
-  - role: ingress
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_ingress_label_prometheus_io_probe
-    - __meta_kubernetes_ingress_labelpresent_prometheus_io_probe
-    regex: (true);true
-  - source_labels:
-    - __meta_kubernetes_ingress_scheme
-    - __address__
-    - __meta_kubernetes_ingress_path
-    separator: ;
-    regex: (.+);(.+);(.+)
-    target_label: __param_target
-    replacement: ${1}://${2}${3}
-    action: replace
-  - source_labels:
-    - __meta_kubernetes_namespace
-    target_label: namespace
-  - source_labels:
-    - __meta_kubernetes_ingress_name
-    target_label: ingress
-  - source_labels:
-    - __address__
-    separator: ;
-    regex: (.*)
-    target_label: __tmp_ingress_address
-    replacement: $1
-    action: replace
-  - source_labels:
-    - __param_target
-    target_label: instance
-  - target_label: __address__
-    replacement: blackbox.exporter.io
-  - target_label: foo
-    replacement: bar
-    action: replace
-  - source_labels:
-    - __param_target
-    target_label: __tmp_hash
-    modulus: 2
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-  metric_relabel_configs: []
-`
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "ProbeIngressSDConfigGenerationWithShards.golden")
 }
 
 func TestProbeIngressSDConfigGenerationWithLabelEnforce(t *testing.T) {
@@ -1075,6 +743,7 @@ func TestProbeIngressSDConfigGenerationWithLabelEnforce(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -1130,79 +799,7 @@ func TestProbeIngressSDConfigGenerationWithLabelEnforce(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: probe/default/testprobe1
-  honor_timestamps: true
-  metrics_path: /probe
-  scheme: http
-  params:
-    module:
-    - http_2xx
-  kubernetes_sd_configs:
-  - role: ingress
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_ingress_label_prometheus_io_probe
-    - __meta_kubernetes_ingress_labelpresent_prometheus_io_probe
-    regex: (true);true
-  - source_labels:
-    - __meta_kubernetes_ingress_scheme
-    - __address__
-    - __meta_kubernetes_ingress_path
-    separator: ;
-    regex: (.+);(.+);(.+)
-    target_label: __param_target
-    replacement: ${1}://${2}${3}
-    action: replace
-  - source_labels:
-    - __meta_kubernetes_namespace
-    target_label: namespace
-  - source_labels:
-    - __meta_kubernetes_ingress_name
-    target_label: ingress
-  - source_labels:
-    - __address__
-    separator: ;
-    regex: (.*)
-    target_label: __tmp_ingress_address
-    replacement: $1
-    action: replace
-  - source_labels:
-    - __param_target
-    target_label: instance
-  - target_label: __address__
-    replacement: blackbox.exporter.io
-  - target_label: foo
-    replacement: bar
-    action: replace
-  - target_label: namespace
-    replacement: default
-  - source_labels:
-    - __param_target
-    target_label: __tmp_hash
-    modulus: 1
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-  metric_relabel_configs:
-  - target_label: namespace
-    replacement: default
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "ProbeIngressSDConfigGenerationWithLabelEnforce.golden")
 }
 
 func TestK8SSDConfigGeneration(t *testing.T) {
@@ -1224,17 +821,12 @@ func TestK8SSDConfigGeneration(t *testing.T) {
 	testcases := []struct {
 		apiserverConfig *monitoringv1.APIServerConfig
 		store           *assets.Store
-		expected        string
+		golden          string
 	}{
 		{
 			nil,
 			nil,
-			`kubernetes_sd_configs:
-- role: endpoints
-  namespaces:
-    names:
-    - test
-`,
+			"K8SSDConfigGenerationFirst.golden",
 		},
 		{
 			&monitoringv1.APIServerConfig{
@@ -1254,18 +846,7 @@ func TestK8SSDConfigGeneration(t *testing.T) {
 				OAuth2Assets: map[string]assets.OAuth2Credentials{},
 				TokenAssets:  map[string]assets.Token{},
 			},
-			`kubernetes_sd_configs:
-- role: endpoints
-  namespaces:
-    names:
-    - test
-  api_server: example.com
-  basic_auth:
-    username: foo
-    password: bar
-  bearer_token: bearer_token
-  bearer_token_file: bearer_token_file
-`,
+			"K8SSDConfigGenerationTwo.golden",
 		},
 	}
 
@@ -1298,7 +879,7 @@ func TestK8SSDConfigGeneration(t *testing.T) {
 		)
 		s, err := yaml.Marshal(yaml.MapSlice{c})
 		require.NoError(t, err)
-		require.Equal(t, tc.expected, string(s))
+		golden.Assert(t, string(s), tc.golden)
 	}
 }
 
@@ -1317,6 +898,7 @@ func TestAlertmanagerBearerToken(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -1335,42 +917,7 @@ func TestAlertmanagerBearerToken(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	// If this becomes an endless sink of maintenance, then we should just
-	// change this to check that just the `bearer_token_file` is set with
-	// something like json-path.
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-alerting:
-  alert_relabel_configs:
-  - action: labeldrop
-    regex: prometheus_replica
-  alertmanagers:
-  - path_prefix: /
-    scheme: http
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    bearer_token_file: /some/file/on/disk
-    relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_service_name
-      regex: alertmanager-main
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_endpoint_port_name
-      regex: web
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "AlertmanagerBearerToken.golden")
 }
 
 func TestAlertmanagerBasicAuth(t *testing.T) {
@@ -1378,75 +925,17 @@ func TestAlertmanagerBasicAuth(t *testing.T) {
 		name           string
 		version        string
 		expectedConfig string
+		golden         string
 	}{
 		{
 			name:    "Valid Prom Version",
 			version: "2.26.0",
-			expectedConfig: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-alerting:
-  alert_relabel_configs:
-  - action: labeldrop
-    regex: prometheus_replica
-  alertmanagers:
-  - path_prefix: /
-    scheme: http
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    basic_auth:
-      username: bob
-      password: alice
-    relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_service_name
-      regex: alertmanager-main
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_endpoint_port_name
-      regex: web
-`,
+			golden:  "AlertmanagerBasicAuth_Valid_Prom_Version.golden",
 		},
 		{
 			name:    "Invalid Prom Version",
 			version: "2.25.0",
-			expectedConfig: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-alerting:
-  alert_relabel_configs:
-  - action: labeldrop
-    regex: prometheus_replica
-  alertmanagers:
-  - path_prefix: /
-    scheme: http
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_service_name
-      regex: alertmanager-main
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_endpoint_port_name
-      regex: web
-`,
+			golden:  "AlertmanagerBasicAuth_Invalid_Prom_Version.golden",
 		},
 	} {
 
@@ -1490,6 +979,7 @@ alerting:
 		cg := mustNewConfigGenerator(t, p)
 
 		cfg, err := cg.GenerateServerConfiguration(
+			context.Background(),
 			p.Spec.EvaluationInterval,
 			p.Spec.QueryLogFile,
 			p.Spec.RuleSelector,
@@ -1516,7 +1006,7 @@ alerting:
 			t.Fatal(err)
 		}
 
-		require.Equal(t, tc.expectedConfig, string(cfg))
+		golden.Assert(t, string(cfg), tc.golden)
 	}
 }
 
@@ -1535,6 +1025,7 @@ func TestAlertmanagerAPIVersion(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -1553,42 +1044,7 @@ func TestAlertmanagerAPIVersion(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	// If this becomes an endless sink of maintenance, then we should just
-	// change this to check that just the `api_version` is set with
-	// something like json-path.
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-alerting:
-  alert_relabel_configs:
-  - action: labeldrop
-    regex: prometheus_replica
-  alertmanagers:
-  - path_prefix: /
-    scheme: http
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    api_version: v2
-    relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_service_name
-      regex: alertmanager-main
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_endpoint_port_name
-      regex: web
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "AlertmanagerAPIVersion.golden")
 }
 
 func TestAlertmanagerTimeoutConfig(t *testing.T) {
@@ -1600,13 +1056,14 @@ func TestAlertmanagerTimeoutConfig(t *testing.T) {
 				Namespace:  "default",
 				Port:       intstr.FromString("web"),
 				APIVersion: "v2",
-				Timeout:    (*monitoringv1.Duration)(pointer.String("60s")),
+				Timeout:    (*monitoringv1.Duration)(ptr.To("60s")),
 			},
 		},
 	}
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -1625,165 +1082,34 @@ func TestAlertmanagerTimeoutConfig(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	// If this becomes an endless sink of maintenance, then we should just
-	// change this to check that just the `api_version` is set with
-	// something like json-path.
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-alerting:
-  alert_relabel_configs:
-  - action: labeldrop
-    regex: prometheus_replica
-  alertmanagers:
-  - path_prefix: /
-    scheme: http
-    timeout: 60s
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    api_version: v2
-    relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_service_name
-      regex: alertmanager-main
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_endpoint_port_name
-      regex: web
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "AlertmanagerTimeoutConfig.golden")
 }
 
 func TestAlertmanagerEnableHttp2(t *testing.T) {
-	expectedWithHTTP2Unsupported := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-alerting:
-  alert_relabel_configs:
-  - action: labeldrop
-    regex: prometheus_replica
-  alertmanagers:
-  - path_prefix: /
-    scheme: http
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    api_version: v2
-    relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_service_name
-      regex: alertmanager-main
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_endpoint_port_name
-      regex: web
-`
-
-	expectedWithHTTP2Disabled := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-alerting:
-  alert_relabel_configs:
-  - action: labeldrop
-    regex: prometheus_replica
-  alertmanagers:
-  - path_prefix: /
-    scheme: http
-    enable_http2: false
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    api_version: v2
-    relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_service_name
-      regex: alertmanager-main
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_endpoint_port_name
-      regex: web
-`
-
-	expectedWithHTTP2Enabled := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-alerting:
-  alert_relabel_configs:
-  - action: labeldrop
-    regex: prometheus_replica
-  alertmanagers:
-  - path_prefix: /
-    scheme: http
-    enable_http2: true
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    api_version: v2
-    relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_service_name
-      regex: alertmanager-main
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_endpoint_port_name
-      regex: web
-`
-
 	for _, tc := range []struct {
 		version     string
-		expected    string
 		enableHTTP2 bool
+		golden      string
 	}{
 		{
 			version:     "v2.34.0",
 			enableHTTP2: false,
-			expected:    expectedWithHTTP2Unsupported,
+			golden:      "AlertmanagerEnableHttp2_false_expectedWithHTTP2Unsupported.golden",
 		},
 		{
 			version:     "v2.34.0",
 			enableHTTP2: true,
-			expected:    expectedWithHTTP2Unsupported,
+			golden:      "AlertmanagerEnableHttp2_true_expectedWithHTTP2Unsupported.golden",
 		},
 		{
 			version:     "v2.35.0",
 			enableHTTP2: true,
-			expected:    expectedWithHTTP2Enabled,
+			golden:      "AlertmanagerEnableHttp2_true_expectedWithHTTP2Enabled.golden",
 		},
 		{
 			version:     "v2.35.0",
 			enableHTTP2: false,
-			expected:    expectedWithHTTP2Disabled,
+			golden:      "AlertmanagerEnableHttp2_false_expectedWithHTTP2Enabled.golden",
 		},
 	} {
 		t.Run(fmt.Sprintf("%s TestAlertmanagerEnableHttp2(%t)", tc.version, tc.enableHTTP2), func(t *testing.T) {
@@ -1803,6 +1129,7 @@ alerting:
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -1821,7 +1148,7 @@ alerting:
 				nil,
 			)
 			require.NoError(t, err)
-			require.Equal(t, tc.expected, string(cfg))
+			golden.Assert(t, string(cfg), tc.golden)
 		})
 	}
 }
@@ -1833,6 +1160,7 @@ func TestAdditionalScrapeConfigs(t *testing.T) {
 
 		cg := mustNewConfigGenerator(t, p)
 		cfg, err := cg.GenerateServerConfiguration(
+			context.Background(),
 			p.Spec.EvaluationInterval,
 			p.Spec.QueryLogFile,
 			p.Spec.RuleSelector,
@@ -1845,21 +1173,7 @@ func TestAdditionalScrapeConfigs(t *testing.T) {
 			nil,
 			nil,
 			&assets.Store{},
-			[]byte(`- job_name: prometheus
-  scrape_interval: 15s
-  static_configs:
-  - targets: ['localhost:9090']
-- job_name: gce_app_bar
-  scrape_interval: 5s
-  gce_sd_config:
-    - project: foo
-      zone: us-central1
-  relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_gce_label_app
-      regex: my_app
-`),
+			golden.Get(t, "TestAdditionalScrapeConfigsAdditionalScrapeConfig.golden"),
 			nil,
 			nil,
 			nil,
@@ -1870,117 +1184,31 @@ func TestAdditionalScrapeConfigs(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name     string
-		result   string
-		expected string
+		name   string
+		result string
+		golden string
 	}{
 		{
 			name:   "unsharded prometheus",
 			result: getCfg(nil),
-			expected: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: prometheus
-  scrape_interval: 15s
-  static_configs:
-  - targets:
-    - localhost:9090
-- job_name: gce_app_bar
-  scrape_interval: 5s
-  gce_sd_config:
-  - project: foo
-    zone: us-central1
-  relabel_configs:
-  - action: keep
-    source_labels:
-    - __meta_gce_label_app
-    regex: my_app
-`,
+			golden: "AdditionalScrapeConfigs_unsharded_prometheus.golden",
 		},
 		{
 			name:   "one prometheus shard",
-			result: getCfg(pointer.Int32(1)),
-			expected: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: prometheus
-  scrape_interval: 15s
-  static_configs:
-  - targets:
-    - localhost:9090
-- job_name: gce_app_bar
-  scrape_interval: 5s
-  gce_sd_config:
-  - project: foo
-    zone: us-central1
-  relabel_configs:
-  - action: keep
-    source_labels:
-    - __meta_gce_label_app
-    regex: my_app
-`,
+			result: getCfg(ptr.To(int32(1))),
+			golden: "AdditionalScrapeConfigs_one_prometheus_shard.golden",
 		},
 		{
 			name:   "sharded prometheus",
-			result: getCfg(pointer.Int32(3)),
-			expected: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: prometheus
-  scrape_interval: 15s
-  static_configs:
-  - targets:
-    - localhost:9090
-  relabel_configs:
-  - source_labels:
-    - __address__
-    target_label: __tmp_hash
-    modulus: 3
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-- job_name: gce_app_bar
-  scrape_interval: 5s
-  gce_sd_config:
-  - project: foo
-    zone: us-central1
-  relabel_configs:
-  - action: keep
-    source_labels:
-    - __meta_gce_label_app
-    regex: my_app
-  - source_labels:
-    - __address__
-    target_label: __tmp_hash
-    modulus: 3
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-`,
+			result: getCfg(ptr.To(int32(3))),
+			golden: "AdditionalScrapeConfigs_sharded prometheus.golden",
 		},
 	}
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.result, tt.expected)
-		},
-		)
+			golden.Assert(t, tt.result, tt.golden)
+		})
 	}
 }
 
@@ -1998,6 +1226,7 @@ func TestAdditionalAlertRelabelConfigs(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -2011,51 +1240,12 @@ func TestAdditionalAlertRelabelConfigs(t *testing.T) {
 		nil,
 		&assets.Store{},
 		nil,
-		[]byte(`- action: drop
-  source_labels: [__meta_kubernetes_node_name]
-  regex: spot-(.+)
-
-`),
+		golden.Get(t, "AdditionalAlertRelabelConfigs.golden"),
 		nil,
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-alerting:
-  alert_relabel_configs:
-  - action: labeldrop
-    regex: prometheus_replica
-  - action: drop
-    source_labels:
-    - __meta_kubernetes_node_name
-    regex: spot-(.+)
-  alertmanagers:
-  - path_prefix: /
-    scheme: http
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_service_name
-      regex: alertmanager-main
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_endpoint_port_name
-      regex: web
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "AdditionalAlertRelabelConfigs_Expected.golden")
 }
 
 func TestNoEnforcedNamespaceLabelServiceMonitor(t *testing.T) {
@@ -2063,6 +1253,7 @@ func TestNoEnforcedNamespaceLabelServiceMonitor(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -2123,97 +1314,7 @@ func TestNoEnforcedNamespaceLabelServiceMonitor(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: serviceMonitor/default/test/0
-  honor_labels: true
-  kubernetes_sd_configs:
-  - role: endpoints
-    namespaces:
-      names:
-      - default
-  scrape_interval: 30s
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_service_label_foo
-    - __meta_kubernetes_service_labelpresent_foo
-    regex: (bar);true
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_endpoint_port_name
-    regex: https-metrics
-  - source_labels:
-    - __meta_kubernetes_endpoint_address_target_kind
-    - __meta_kubernetes_endpoint_address_target_name
-    separator: ;
-    regex: Node;(.*)
-    replacement: ${1}
-    target_label: node
-  - source_labels:
-    - __meta_kubernetes_endpoint_address_target_kind
-    - __meta_kubernetes_endpoint_address_target_name
-    separator: ;
-    regex: Pod;(.*)
-    replacement: ${1}
-    target_label: pod
-  - source_labels:
-    - __meta_kubernetes_namespace
-    target_label: namespace
-  - source_labels:
-    - __meta_kubernetes_service_name
-    target_label: service
-  - source_labels:
-    - __meta_kubernetes_pod_name
-    target_label: pod
-  - source_labels:
-    - __meta_kubernetes_pod_container_name
-    target_label: container
-  - action: drop
-    source_labels:
-    - __meta_kubernetes_pod_phase
-    regex: (Failed|Succeeded)
-  - source_labels:
-    - __meta_kubernetes_service_name
-    target_label: job
-    replacement: ${1}
-  - target_label: endpoint
-    replacement: https-metrics
-  - source_labels:
-    - __address__
-    target_label: __address__
-    regex: (.+)(?::d+)
-    replacement: $1:9537
-    action: replace
-  - target_label: job
-    replacement: crio
-    action: replace
-  - source_labels:
-    - __address__
-    target_label: __tmp_hash
-    modulus: 1
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-  metric_relabel_configs:
-  - source_labels:
-    - __name__
-    regex: container_(network_tcp_usage_total|network_udp_usage_total|tasks_state|cpu_load_average_10s)
-    action: drop
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "NoEnforcedNamespaceLabelServiceMonitor_Expected.golden")
 }
 
 func TestServiceMonitorWithEndpointSliceEnable(t *testing.T) {
@@ -2223,6 +1324,7 @@ func TestServiceMonitorWithEndpointSliceEnable(t *testing.T) {
 	cg := mustNewConfigGenerator(t, p)
 	cg.endpointSliceSupported = true
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -2284,103 +1386,7 @@ func TestServiceMonitorWithEndpointSliceEnable(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: serviceMonitor/default/test/0
-  honor_labels: false
-  kubernetes_sd_configs:
-  - role: endpointslice
-    namespaces:
-      names:
-      - default
-  scrape_interval: 30s
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_service_label_foo
-    - __meta_kubernetes_service_labelpresent_foo
-    regex: (bar);true
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_service_label_alpha
-    - __meta_kubernetes_service_labelpresent_alpha
-    regex: (beta|gamma);true
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_endpointslice_port_name
-    regex: web
-  - source_labels:
-    - __meta_kubernetes_endpointslice_address_target_kind
-    - __meta_kubernetes_endpointslice_address_target_name
-    separator: ;
-    regex: Node;(.*)
-    replacement: ${1}
-    target_label: node
-  - source_labels:
-    - __meta_kubernetes_endpointslice_address_target_kind
-    - __meta_kubernetes_endpointslice_address_target_name
-    separator: ;
-    regex: Pod;(.*)
-    replacement: ${1}
-    target_label: pod
-  - source_labels:
-    - __meta_kubernetes_namespace
-    target_label: namespace
-  - source_labels:
-    - __meta_kubernetes_service_name
-    target_label: service
-  - source_labels:
-    - __meta_kubernetes_pod_name
-    target_label: pod
-  - source_labels:
-    - __meta_kubernetes_pod_container_name
-    target_label: container
-  - action: drop
-    source_labels:
-    - __meta_kubernetes_pod_phase
-    regex: (Failed|Succeeded)
-  - source_labels:
-    - __meta_kubernetes_service_name
-    target_label: job
-    replacement: ${1}
-  - target_label: endpoint
-    replacement: web
-  - source_labels:
-    - __meta_kubernetes_pod_ready
-    regex: (.*)
-    replacement: $1
-    action: replace
-  - target_label: ns-key
-    replacement: default
-  - source_labels:
-    - __address__
-    target_label: __tmp_hash
-    modulus: 1
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-  metric_relabel_configs:
-  - source_labels:
-    - pod_name
-    target_label: ns-key
-    regex: my-job-pod-.+
-    action: drop
-  - target_label: ns-key
-    replacement: default
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "TestServiceMonitorWithEndpointSliceEnable_Expected.golden")
 }
 
 func TestEnforcedNamespaceLabelPodMonitor(t *testing.T) {
@@ -2389,6 +1395,7 @@ func TestEnforcedNamespaceLabelPodMonitor(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -2442,84 +1449,7 @@ func TestEnforcedNamespaceLabelPodMonitor(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: podMonitor/pod-monitor-ns/testpodmonitor1/0
-  honor_labels: false
-  kubernetes_sd_configs:
-  - role: pod
-    namespaces:
-      names:
-      - pod-monitor-ns
-  scrape_interval: 30s
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - action: drop
-    source_labels:
-    - __meta_kubernetes_pod_phase
-    regex: (Failed|Succeeded)
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_pod_container_port_name
-    regex: web
-  - source_labels:
-    - __meta_kubernetes_namespace
-    target_label: namespace
-  - source_labels:
-    - __meta_kubernetes_pod_container_name
-    target_label: container
-  - source_labels:
-    - __meta_kubernetes_pod_name
-    target_label: pod
-  - source_labels:
-    - __meta_kubernetes_pod_label_example
-    target_label: example
-    regex: (.+)
-    replacement: ${1}
-  - source_labels:
-    - __meta_kubernetes_pod_label_env
-    target_label: env
-    regex: (.+)
-    replacement: ${1}
-  - target_label: job
-    replacement: pod-monitor-ns/testpodmonitor1
-  - target_label: endpoint
-    replacement: web
-  - source_labels:
-    - __meta_kubernetes_pod_ready
-    regex: (.*)
-    replacement: $1
-    action: replace
-  - target_label: ns-key
-    replacement: pod-monitor-ns
-  - source_labels:
-    - __address__
-    target_label: __tmp_hash
-    modulus: 1
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-  metric_relabel_configs:
-  - source_labels:
-    - pod_name
-    target_label: my-ns
-    regex: my-job-pod-.+
-    action: drop
-  - target_label: ns-key
-    replacement: pod-monitor-ns
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "EnforcedNamespaceLabelPodMonitor_Expected.golden")
 }
 
 func TestEnforcedNamespaceLabelOnExcludedPodMonitor(t *testing.T) {
@@ -2535,6 +1465,7 @@ func TestEnforcedNamespaceLabelOnExcludedPodMonitor(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -2592,80 +1523,7 @@ func TestEnforcedNamespaceLabelOnExcludedPodMonitor(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: podMonitor/pod-monitor-ns/testpodmonitor1/0
-  honor_labels: false
-  kubernetes_sd_configs:
-  - role: pod
-    namespaces:
-      names:
-      - pod-monitor-ns
-  scrape_interval: 30s
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - action: drop
-    source_labels:
-    - __meta_kubernetes_pod_phase
-    regex: (Failed|Succeeded)
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_pod_container_port_name
-    regex: web
-  - source_labels:
-    - __meta_kubernetes_namespace
-    target_label: namespace
-  - source_labels:
-    - __meta_kubernetes_pod_container_name
-    target_label: container
-  - source_labels:
-    - __meta_kubernetes_pod_name
-    target_label: pod
-  - source_labels:
-    - __meta_kubernetes_pod_label_example
-    target_label: example
-    regex: (.+)
-    replacement: ${1}
-  - source_labels:
-    - __meta_kubernetes_pod_label_env
-    target_label: env
-    regex: (.+)
-    replacement: ${1}
-  - target_label: job
-    replacement: pod-monitor-ns/testpodmonitor1
-  - target_label: endpoint
-    replacement: web
-  - source_labels:
-    - __meta_kubernetes_pod_ready
-    regex: (.*)
-    replacement: $1
-    action: replace
-  - source_labels:
-    - __address__
-    target_label: __tmp_hash
-    modulus: 1
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-  metric_relabel_configs:
-  - source_labels:
-    - pod_name
-    target_label: my-ns
-    regex: my-job-pod-.+
-    action: drop
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "EnforcedNamespaceLabelOnExcludedPodMonitor_Expected.golden")
 }
 
 func TestEnforcedNamespaceLabelServiceMonitor(t *testing.T) {
@@ -2674,6 +1532,7 @@ func TestEnforcedNamespaceLabelServiceMonitor(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -2735,103 +1594,7 @@ func TestEnforcedNamespaceLabelServiceMonitor(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: serviceMonitor/default/test/0
-  honor_labels: false
-  kubernetes_sd_configs:
-  - role: endpoints
-    namespaces:
-      names:
-      - default
-  scrape_interval: 30s
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_service_label_foo
-    - __meta_kubernetes_service_labelpresent_foo
-    regex: (bar);true
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_service_label_alpha
-    - __meta_kubernetes_service_labelpresent_alpha
-    regex: (beta|gamma);true
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_endpoint_port_name
-    regex: web
-  - source_labels:
-    - __meta_kubernetes_endpoint_address_target_kind
-    - __meta_kubernetes_endpoint_address_target_name
-    separator: ;
-    regex: Node;(.*)
-    replacement: ${1}
-    target_label: node
-  - source_labels:
-    - __meta_kubernetes_endpoint_address_target_kind
-    - __meta_kubernetes_endpoint_address_target_name
-    separator: ;
-    regex: Pod;(.*)
-    replacement: ${1}
-    target_label: pod
-  - source_labels:
-    - __meta_kubernetes_namespace
-    target_label: namespace
-  - source_labels:
-    - __meta_kubernetes_service_name
-    target_label: service
-  - source_labels:
-    - __meta_kubernetes_pod_name
-    target_label: pod
-  - source_labels:
-    - __meta_kubernetes_pod_container_name
-    target_label: container
-  - action: drop
-    source_labels:
-    - __meta_kubernetes_pod_phase
-    regex: (Failed|Succeeded)
-  - source_labels:
-    - __meta_kubernetes_service_name
-    target_label: job
-    replacement: ${1}
-  - target_label: endpoint
-    replacement: web
-  - source_labels:
-    - __meta_kubernetes_pod_ready
-    regex: (.*)
-    replacement: $1
-    action: replace
-  - target_label: ns-key
-    replacement: default
-  - source_labels:
-    - __address__
-    target_label: __tmp_hash
-    modulus: 1
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-  metric_relabel_configs:
-  - source_labels:
-    - pod_name
-    target_label: ns-key
-    regex: my-job-pod-.+
-    action: drop
-  - target_label: ns-key
-    replacement: default
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "EnforcedNamespaceLabelServiceMonitor_Expected.golden")
 }
 
 func TestEnforcedNamespaceLabelOnExcludedServiceMonitor(t *testing.T) {
@@ -2847,6 +1610,7 @@ func TestEnforcedNamespaceLabelOnExcludedServiceMonitor(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -2908,94 +1672,7 @@ func TestEnforcedNamespaceLabelOnExcludedServiceMonitor(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: serviceMonitor/service-monitor-ns/servicemonitor1/0
-  honor_labels: false
-  kubernetes_sd_configs:
-  - role: endpoints
-    namespaces:
-      names:
-      - service-monitor-ns
-  scrape_interval: 30s
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_service_label_foo
-    - __meta_kubernetes_service_labelpresent_foo
-    regex: (bar);true
-  - action: keep
-    source_labels:
-    - __meta_kubernetes_endpoint_port_name
-    regex: web
-  - source_labels:
-    - __meta_kubernetes_endpoint_address_target_kind
-    - __meta_kubernetes_endpoint_address_target_name
-    separator: ;
-    regex: Node;(.*)
-    replacement: ${1}
-    target_label: node
-  - source_labels:
-    - __meta_kubernetes_endpoint_address_target_kind
-    - __meta_kubernetes_endpoint_address_target_name
-    separator: ;
-    regex: Pod;(.*)
-    replacement: ${1}
-    target_label: pod
-  - source_labels:
-    - __meta_kubernetes_namespace
-    target_label: namespace
-  - source_labels:
-    - __meta_kubernetes_service_name
-    target_label: service
-  - source_labels:
-    - __meta_kubernetes_pod_name
-    target_label: pod
-  - source_labels:
-    - __meta_kubernetes_pod_container_name
-    target_label: container
-  - action: drop
-    source_labels:
-    - __meta_kubernetes_pod_phase
-    regex: (Failed|Succeeded)
-  - source_labels:
-    - __meta_kubernetes_service_name
-    target_label: job
-    replacement: ${1}
-  - target_label: endpoint
-    replacement: web
-  - source_labels:
-    - __meta_kubernetes_pod_ready
-    regex: (.*)
-    replacement: $1
-    action: replace
-  - source_labels:
-    - __address__
-    target_label: __tmp_hash
-    modulus: 1
-    action: hashmod
-  - source_labels:
-    - __tmp_hash
-    regex: $(SHARD)
-    action: keep
-  metric_relabel_configs:
-  - source_labels:
-    - pod_name
-    target_label: ns-key
-    regex: my-job-pod-.+
-    action: drop
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "EnforcedNamespaceLabelOnExcludedServiceMonitor_Expected.golden")
 }
 
 func TestAdditionalAlertmanagers(t *testing.T) {
@@ -3013,6 +1690,7 @@ func TestAdditionalAlertmanagers(t *testing.T) {
 	cg := mustNewConfigGenerator(t, p)
 
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -3034,41 +1712,7 @@ func TestAdditionalAlertmanagers(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	expected := `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs: []
-alerting:
-  alert_relabel_configs:
-  - action: labeldrop
-    regex: prometheus_replica
-  alertmanagers:
-  - path_prefix: /
-    scheme: http
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    relabel_configs:
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_service_name
-      regex: alertmanager-main
-    - action: keep
-      source_labels:
-      - __meta_kubernetes_endpoint_port_name
-      regex: web
-  - static_configs:
-    - targets:
-      - localhost
-`
-
-	require.Equal(t, expected, string(cfg))
+	golden.Assert(t, string(cfg), "TestAdditionalAlertmanagers_Expected.golden")
 }
 
 func TestSettingHonorTimestampsInServiceMonitor(t *testing.T) {
@@ -3076,6 +1720,7 @@ func TestSettingHonorTimestampsInServiceMonitor(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -3202,6 +1847,7 @@ func TestSettingHonorTimestampsInPodMonitor(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -3310,6 +1956,7 @@ func TestHonorTimestampsOverriding(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -3436,6 +2083,7 @@ func TestSettingHonorLabels(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -3565,6 +2213,7 @@ func TestHonorLabelsOverriding(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -3693,6 +2342,7 @@ func TestTargetLabels(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -3952,6 +2602,7 @@ oauth2:
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -3988,6 +2639,7 @@ func TestPodTargetLabels(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -4115,6 +2767,7 @@ func TestPodTargetLabelsFromPodMonitor(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -4224,6 +2877,7 @@ func TestPodTargetLabelsFromPodMonitorAndGlobal(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -4332,6 +2986,7 @@ func TestEmptyEndpointPorts(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -4468,7 +3123,7 @@ func generateTestConfig(t *testing.T, version string) ([]byte, error) {
 					"label2": "value2",
 				},
 				Version:  version,
-				Replicas: func(i int32) *int32 { return &i }(1),
+				Replicas: ptr.To(int32(1)),
 				ServiceMonitorSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"group": "group1",
@@ -4500,6 +3155,7 @@ func generateTestConfig(t *testing.T, version string) ([]byte, error) {
 	}
 	cg := mustNewConfigGenerator(t, p)
 	return cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -5129,11 +3785,13 @@ scrape_configs:
 				},
 			}
 			if tc.limit >= 0 {
-				serviceMonitor.Spec.SampleLimit = uint64(tc.limit)
+				sampleLimit := uint64(tc.limit)
+				serviceMonitor.Spec.SampleLimit = &sampleLimit
 			}
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -5385,11 +4043,13 @@ scrape_configs:
 				},
 			}
 			if tc.limit >= 0 {
-				serviceMonitor.Spec.TargetLimit = uint64(tc.limit)
+				limit := uint64(tc.limit)
+				serviceMonitor.Spec.TargetLimit = &limit
 			}
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -5478,7 +4138,7 @@ remote_read:
 			version: "v2.25.0",
 			remoteRead: monitoringv1.RemoteReadSpec{
 				URL:             "http://example.com",
-				FollowRedirects: pointer.Bool(true),
+				FollowRedirects: ptr.To(true),
 			},
 			expected: `global:
   evaluation_interval: 30s
@@ -5496,7 +4156,7 @@ remote_read:
 			version: "v2.26.0",
 			remoteRead: monitoringv1.RemoteReadSpec{
 				URL:             "http://example.com",
-				FollowRedirects: pointer.Bool(false),
+				FollowRedirects: ptr.To(false),
 			},
 			expected: `global:
   evaluation_interval: 30s
@@ -5515,7 +4175,7 @@ remote_read:
 			version: "v2.26.0",
 			remoteRead: monitoringv1.RemoteReadSpec{
 				URL:                  "http://example.com",
-				FilterExternalLabels: pointer.Bool(true),
+				FilterExternalLabels: ptr.To(true),
 			},
 			expected: `global:
   evaluation_interval: 30s
@@ -5550,7 +4210,7 @@ remote_read:
 			version: "v2.34.0",
 			remoteRead: monitoringv1.RemoteReadSpec{
 				URL:                  "http://example.com",
-				FilterExternalLabels: pointer.Bool(false),
+				FilterExternalLabels: ptr.To(false),
 			},
 			expected: `global:
   evaluation_interval: 30s
@@ -5569,7 +4229,7 @@ remote_read:
 			version: "v2.34.0",
 			remoteRead: monitoringv1.RemoteReadSpec{
 				URL:                  "http://example.com",
-				FilterExternalLabels: pointer.Bool(true),
+				FilterExternalLabels: ptr.To(true),
 			},
 			expected: `global:
   evaluation_interval: 30s
@@ -5621,6 +4281,7 @@ remote_read:
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -6137,6 +4798,7 @@ remote_write:
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -6368,7 +5030,7 @@ scrape_configs:
 			p.Spec.CommonPrometheusFields.Version = tc.version
 
 			if tc.enforcedLabelLimit >= 0 {
-				p.Spec.EnforcedLabelLimit = pointer.Uint64(uint64(tc.enforcedLabelLimit))
+				p.Spec.EnforcedLabelLimit = ptr.To(uint64(tc.enforcedLabelLimit))
 			}
 
 			serviceMonitor := monitoringv1.ServiceMonitor{
@@ -6389,11 +5051,13 @@ scrape_configs:
 				},
 			}
 			if tc.labelLimit >= 0 {
-				serviceMonitor.Spec.LabelLimit = uint64(tc.labelLimit)
+				labelLimit := uint64(tc.labelLimit)
+				serviceMonitor.Spec.LabelLimit = &labelLimit
 			}
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -6585,7 +5249,7 @@ scrape_configs:
 			p.Spec.CommonPrometheusFields.Version = tc.version
 
 			if tc.enforcedLabelNameLengthLimit >= 0 {
-				p.Spec.EnforcedLabelNameLengthLimit = pointer.Uint64(uint64(tc.enforcedLabelNameLengthLimit))
+				p.Spec.EnforcedLabelNameLengthLimit = ptr.To(uint64(tc.enforcedLabelNameLengthLimit))
 			}
 
 			podMonitor := monitoringv1.PodMonitor{
@@ -6606,11 +5270,13 @@ scrape_configs:
 				},
 			}
 			if tc.labelNameLengthLimit >= 0 {
-				podMonitor.Spec.LabelNameLengthLimit = uint64(tc.labelNameLengthLimit)
+				labelNameLengthLimit := uint64(tc.labelNameLengthLimit)
+				podMonitor.Spec.LabelNameLengthLimit = &labelNameLengthLimit
 			}
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -6671,6 +5337,15 @@ scrape_configs:
     target_label: instance
   - target_label: __address__
     replacement: blackbox.exporter.io
+  - source_labels:
+    - __param_target
+    target_label: __tmp_hash
+    modulus: 1
+    action: hashmod
+  - source_labels:
+    - __tmp_hash
+    regex: $(SHARD)
+    action: keep
   metric_relabel_configs: []
 `
 
@@ -6709,6 +5384,15 @@ scrape_configs:
     target_label: instance
   - target_label: __address__
     replacement: blackbox.exporter.io
+  - source_labels:
+    - __param_target
+    target_label: __tmp_hash
+    modulus: 1
+    action: hashmod
+  - source_labels:
+    - __tmp_hash
+    regex: $(SHARD)
+    action: keep
   metric_relabel_configs: []
 `
 
@@ -6772,7 +5456,7 @@ scrape_configs:
 			p.Spec.CommonPrometheusFields.Version = tc.version
 
 			if tc.enforcedLabelValueLengthLimit >= 0 {
-				p.Spec.EnforcedLabelValueLengthLimit = pointer.Uint64(uint64(tc.enforcedLabelValueLengthLimit))
+				p.Spec.EnforcedLabelValueLengthLimit = ptr.To(uint64(tc.enforcedLabelValueLengthLimit))
 			}
 
 			probe := monitoringv1.Probe{
@@ -6805,11 +5489,13 @@ scrape_configs:
 				},
 			}
 			if tc.labelValueLengthLimit >= 0 {
-				probe.Spec.LabelValueLengthLimit = uint64(tc.labelValueLengthLimit)
+				labelValueLengthLimit := uint64(tc.labelValueLengthLimit)
+				probe.Spec.LabelValueLengthLimit = &labelValueLengthLimit
 			}
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -6831,6 +5517,86 @@ scrape_configs:
 			)
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, string(cfg))
+		})
+	}
+}
+
+func TestKeepDroppedTargets(t *testing.T) {
+	for _, tc := range []struct {
+		version                    string
+		enforcedKeepDroppedTargets *uint64
+		keepDroppedTargets         *uint64
+		golden                     string
+	}{
+		{
+			version:                    "v2.46.0",
+			enforcedKeepDroppedTargets: ptr.To(uint64(1000)),
+			keepDroppedTargets:         ptr.To(uint64(50)),
+			golden:                     "KeepDroppedTargetsNotAddedInConfig.golden",
+		},
+		{
+			version:                    "v2.47.0",
+			enforcedKeepDroppedTargets: ptr.To(uint64(1000)),
+			keepDroppedTargets:         ptr.To(uint64(2000)),
+			golden:                     "KeepDroppedTargetsOverridedWithEnforcedValue.golden",
+		},
+		{
+			version:                    "v2.47.0",
+			enforcedKeepDroppedTargets: ptr.To(uint64(1000)),
+			keepDroppedTargets:         ptr.To(uint64(500)),
+			golden:                     "KeepDroppedTargets.golden",
+		},
+	} {
+		t.Run(fmt.Sprintf("%s enforcedKeepDroppedTargets(%d) keepDroppedTargets(%d)", tc.version, tc.enforcedKeepDroppedTargets, tc.keepDroppedTargets), func(t *testing.T) {
+			p := defaultPrometheus()
+			p.Spec.CommonPrometheusFields.Version = tc.version
+
+			p.Spec.EnforcedKeepDroppedTargets = tc.enforcedKeepDroppedTargets
+
+			serviceMonitor := monitoringv1.ServiceMonitor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testservicemonitor1",
+					Namespace: "default",
+					Labels: map[string]string{
+						"group": "group1",
+					},
+				},
+				Spec: monitoringv1.ServiceMonitorSpec{
+					Endpoints: []monitoringv1.Endpoint{
+						{
+							Port:     "web",
+							Interval: "30s",
+						},
+					},
+				},
+			}
+
+			serviceMonitor.Spec.KeepDroppedTargets = tc.keepDroppedTargets
+
+			cg := mustNewConfigGenerator(t, p)
+			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
+				p.Spec.EvaluationInterval,
+				p.Spec.QueryLogFile,
+				p.Spec.RuleSelector,
+				p.Spec.Exemplars,
+				p.Spec.TSDB,
+				p.Spec.Alerting,
+				p.Spec.RemoteRead,
+				map[string]*monitoringv1.ServiceMonitor{
+					"testservicemonitor1": &serviceMonitor,
+				},
+				nil,
+				nil,
+				nil,
+				&assets.Store{},
+				nil,
+				nil,
+				nil,
+				nil,
+			)
+			require.NoError(t, err)
+			golden.Assert(t, string(cfg), tc.golden)
 		})
 	}
 }
@@ -7029,6 +5795,7 @@ scrape_configs:
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -7065,6 +5832,7 @@ func TestMatchExpressionsServiceMonitor(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -7454,6 +6222,7 @@ scrape_configs:
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -7689,6 +6458,7 @@ scrape_configs:
 			cg := mustNewConfigGenerator(t, p)
 
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -7980,6 +6750,7 @@ scrape_configs:
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -8010,6 +6781,7 @@ func TestPodMonitorPhaseFilter(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -8306,6 +7078,7 @@ scrape_configs:
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -8341,7 +7114,7 @@ func TestStorageSettingMaxExemplars(t *testing.T) {
 		{
 			Scenario: "Exemplars maxSize is set to 5000000",
 			Exemplars: &monitoringv1.Exemplars{
-				MaxSize: pointer.Int64(5000000),
+				MaxSize: ptr.To(int64(5000000)),
 			},
 			ExpectedConfig: `global:
   evaluation_interval: 30s
@@ -8359,7 +7132,7 @@ storage:
 			Scenario: "max_exemplars is not set if version is less than v2.29.0",
 			Version:  "v2.28.0",
 			Exemplars: &monitoringv1.Exemplars{
-				MaxSize: pointer.Int64(5000000),
+				MaxSize: ptr.To(int64(5000000)),
 			},
 			ExpectedConfig: `global:
   evaluation_interval: 30s
@@ -8393,6 +7166,7 @@ scrape_configs: []
 			cg := mustNewConfigGenerator(t, p)
 
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -8479,6 +7253,7 @@ storage:
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
@@ -8507,6 +7282,7 @@ func TestGenerateRelabelConfig(t *testing.T) {
 
 	cg := mustNewConfigGenerator(t, p)
 	cfg, err := cg.GenerateServerConfiguration(
+		context.Background(),
 		p.Spec.EvaluationInterval,
 		p.Spec.QueryLogFile,
 		p.Spec.RuleSelector,
@@ -8668,21 +7444,20 @@ scrape_configs:
 	require.Equal(t, expected, string(cfg))
 }
 
-// When adding new test cases the developer should specify a name, a ScrapeConfig Spec
-// (scSpec) and an expectedConfig. (Optional) It's also possible to specify a
-// function (patchProm) that modifies the default Prometheus CR used if necessary for the test
+// When adding new test cases the developer should specify a name, a Probe Spec
+// (pbSpec) and an expectedConfig. (Optional) It's also possible to specify a
+// function that modifies the default Prometheus CR used if necessary for the test
 // case.
-func TestScrapeConfigSpecConfig(t *testing.T) {
-	refreshInterval := monitoringv1.Duration("5m")
+func TestProbeSpecConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		patchProm   func(*monitoringv1.Prometheus)
-		scSpec      monitoringv1alpha1.ScrapeConfigSpec
+		pbSpec      monitoringv1.ProbeSpec
 		expectedCfg string
 	}{
 		{
-			name:   "empty_scrape_config",
-			scSpec: monitoringv1alpha1.ScrapeConfigSpec{},
+			name:   "empty_probe",
+			pbSpec: monitoringv1.ProbeSpec{},
 			expectedCfg: `global:
   evaluation_interval: 30s
   scrape_interval: 30s
@@ -8690,8 +7465,222 @@ func TestScrapeConfigSpecConfig(t *testing.T) {
     prometheus: default/test
     prometheus_replica: $(POD_NAME)
 scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
+- job_name: probe/default/probe1
+  honor_timestamps: true
+  metrics_path: ""
+  relabel_configs:
+  - source_labels:
+    - job
+    target_label: __tmp_prometheus_job_name
+  - source_labels:
+    - __param_target
+    target_label: __tmp_hash
+    modulus: 1
+    action: hashmod
+  - source_labels:
+    - __tmp_hash
+    regex: $(SHARD)
+    action: keep
+  metric_relabel_configs: []
 `,
+		},
+		{
+			name: "prober_spec",
+			pbSpec: monitoringv1.ProbeSpec{
+				ProberSpec: monitoringv1.ProberSpec{
+					Scheme:   "http",
+					URL:      "example.com",
+					Path:     "/probe",
+					ProxyURL: "socks://myproxy:9095",
+				},
+			},
+			expectedCfg: `global:
+  evaluation_interval: 30s
+  scrape_interval: 30s
+  external_labels:
+    prometheus: default/test
+    prometheus_replica: $(POD_NAME)
+scrape_configs:
+- job_name: probe/default/probe1
+  honor_timestamps: true
+  metrics_path: /probe
+  scheme: http
+  proxy_url: socks://myproxy:9095
+  relabel_configs:
+  - source_labels:
+    - job
+    target_label: __tmp_prometheus_job_name
+  - source_labels:
+    - __param_target
+    target_label: __tmp_hash
+    modulus: 1
+    action: hashmod
+  - source_labels:
+    - __tmp_hash
+    regex: $(SHARD)
+    action: keep
+  metric_relabel_configs: []
+`,
+		},
+		{
+			name: "targets_static_config",
+			pbSpec: monitoringv1.ProbeSpec{
+				Targets: monitoringv1.ProbeTargets{
+					StaticConfig: &monitoringv1.ProbeTargetStaticConfig{
+						Targets: []string{
+							"prometheus.io",
+							"promcon.io",
+						},
+						Labels: map[string]string{
+							"static": "label",
+						},
+						RelabelConfigs: []*monitoringv1.RelabelConfig{
+							{
+								TargetLabel: "foo",
+								Replacement: "bar",
+								Action:      "replace",
+							},
+						},
+					},
+				}},
+			expectedCfg: `global:
+  evaluation_interval: 30s
+  scrape_interval: 30s
+  external_labels:
+    prometheus: default/test
+    prometheus_replica: $(POD_NAME)
+scrape_configs:
+- job_name: probe/default/probe1
+  honor_timestamps: true
+  metrics_path: ""
+  static_configs:
+  - targets:
+    - prometheus.io
+    - promcon.io
+    labels:
+      namespace: default
+      static: label
+  relabel_configs:
+  - source_labels:
+    - job
+    target_label: __tmp_prometheus_job_name
+  - source_labels:
+    - __address__
+    target_label: __param_target
+  - source_labels:
+    - __param_target
+    target_label: instance
+  - target_label: __address__
+    replacement: ""
+  - target_label: foo
+    replacement: bar
+    action: replace
+  - source_labels:
+    - __param_target
+    target_label: __tmp_hash
+    modulus: 1
+    action: hashmod
+  - source_labels:
+    - __tmp_hash
+    regex: $(SHARD)
+    action: keep
+  metric_relabel_configs: []
+`,
+		},
+		{
+			name: "module_config",
+			pbSpec: monitoringv1.ProbeSpec{
+				Module: "http_2xx",
+			},
+			expectedCfg: `global:
+  evaluation_interval: 30s
+  scrape_interval: 30s
+  external_labels:
+    prometheus: default/test
+    prometheus_replica: $(POD_NAME)
+scrape_configs:
+- job_name: probe/default/probe1
+  honor_timestamps: true
+  metrics_path: ""
+  params:
+    module:
+    - http_2xx
+  relabel_configs:
+  - source_labels:
+    - job
+    target_label: __tmp_prometheus_job_name
+  - source_labels:
+    - __param_target
+    target_label: __tmp_hash
+    modulus: 1
+    action: hashmod
+  - source_labels:
+    - __tmp_hash
+    regex: $(SHARD)
+    action: keep
+  metric_relabel_configs: []
+`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pbs := map[string]*monitoringv1.Probe{
+				"probe1": {
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "probe1",
+						Namespace: "default",
+					},
+					Spec: tc.pbSpec,
+				},
+			}
+
+			p := defaultPrometheus()
+			if tc.patchProm != nil {
+				tc.patchProm(p)
+			}
+
+			cg := mustNewConfigGenerator(t, p)
+			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
+				p.Spec.EvaluationInterval,
+				p.Spec.QueryLogFile,
+				nil,
+				nil,
+				p.Spec.TSDB,
+				nil,
+				nil,
+				nil,
+				nil,
+				pbs,
+				nil,
+				&assets.Store{},
+				nil,
+				nil,
+				nil,
+				nil,
+			)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedCfg, string(cfg))
+		})
+
+	}
+}
+
+// When adding new test cases the developer should specify a name, a ScrapeConfig Spec
+// (scSpec) and an expected config in golden file (.golden file in testdata folder). (Optional) It's also possible to specify a
+// function (patchProm) that modifies the default Prometheus CR used if necessary for the test
+// case.
+func TestScrapeConfigSpecConfig(t *testing.T) {
+	refreshInterval := monitoringv1.Duration("5m")
+	for _, tc := range []struct {
+		name      string
+		patchProm func(*monitoringv1.Prometheus)
+		scSpec    monitoringv1alpha1.ScrapeConfigSpec
+		golden    string
+	}{
+		{
+			name:   "empty_scrape_config",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{},
+			golden: "ScrapeConfigSpecConfig_Empty.golden",
 		},
 		{
 			name: "static_config",
@@ -8705,20 +7694,7 @@ scrape_configs:
 					},
 				},
 			},
-			expectedCfg: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
-  static_configs:
-  - targets:
-    - http://localhost:9100
-    labels:
-      label1: value1
-`,
+			golden: "ScrapeConfigSpecConfig_Static.golden",
 		},
 		{
 			name: "file_sd_config",
@@ -8730,19 +7706,7 @@ scrape_configs:
 					},
 				},
 			},
-			expectedCfg: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
-  file_sd_configs:
-  - files:
-    - /tmp/myfile.json
-    refresh_interval: 5m
-`,
+			golden: "ScrapeConfigSpecConfig_FileSD.golden",
 		},
 		{
 			name: "http_sd_config",
@@ -8754,53 +7718,32 @@ scrape_configs:
 					},
 				},
 			},
-			expectedCfg: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
-  http_sd_configs:
-  - url: http://localhost:9100/sd.json
-    refresh_interval: 5m
-`,
+			golden: "ScrapeConfigSpecConfig_HTTPSD.golden",
+		},
+		{
+			name: "kubernetes_sd_config",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				KubernetesSDConfigs: []monitoringv1alpha1.KubernetesSDConfig{
+					{
+						Role: "node",
+					},
+				},
+			},
+			golden: "ScrapeConfigSpecConfig_K8SSD.golden",
 		},
 		{
 			name: "metrics_path",
 			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
-				MetricsPath: "/metrics",
+				MetricsPath: ptr.To("/metrics"),
 			},
-			expectedCfg: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
-  metrics_path: /metrics
-`,
+			golden: "ScrapeConfigSpecConfig_MetricPath.golden",
 		},
 		{
 			name: "empty_relabel_config",
 			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
 				RelabelConfigs: []*monitoringv1.RelabelConfig{},
 			},
-			expectedCfg: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-`,
+			golden: "ScrapeConfigSpecConfig_EmptyRelabelConfig.golden",
 		},
 		{
 			name: "non_empty_relabel_config",
@@ -8815,57 +7758,21 @@ scrape_configs:
 					},
 				},
 			},
-			expectedCfg: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
-  relabel_configs:
-  - source_labels:
-    - job
-    target_label: __tmp_prometheus_job_name
-  - source_labels:
-    - __address__
-    target_label: __address__
-    regex: (.+)(?::d+)
-    replacement: $1:9537
-    action: replace
-`,
+			golden: "ScrapeConfigSpecConfig_NonEmptyRelabelConfig.golden",
 		},
 		{
 			name: "honor_timestamp",
 			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
-				HonorTimestamps: pointer.Bool(true),
+				HonorTimestamps: ptr.To(true),
 			},
-			expectedCfg: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
-  honor_timestamps: true
-`,
+			golden: "ScrapeConfigSpecConfig_HonorTimeStamp.golden",
 		},
 		{
 			name: "honor_labels",
 			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
-				HonorLabels: pointer.Bool(true),
+				HonorLabels: ptr.To(true),
 			},
-			expectedCfg: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
-  honor_labels: true
-`,
+			golden: "ScrapeConfigSpecConfig_HonorLabels.golden",
 		},
 		{
 			name: "basic_auth",
@@ -8904,23 +7811,7 @@ scrape_configs:
 					},
 				},
 			},
-			expectedCfg: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
-  basic_auth:
-    username: scrape-bob
-    password: scrape-alice
-  http_sd_configs:
-  - url: http://localhost:9100/sd.json
-    basic_auth:
-      username: http-sd-bob
-      password: http-sd-alice
-`,
+			golden: "ScrapeConfigSpecConfig_BasicAuth.golden",
 		},
 		{
 			name: "authorization",
@@ -8945,23 +7836,126 @@ scrape_configs:
 					},
 				},
 			},
-			expectedCfg: `global:
-  evaluation_interval: 30s
-  scrape_interval: 30s
-  external_labels:
-    prometheus: default/test
-    prometheus_replica: $(POD_NAME)
-scrape_configs:
-- job_name: scrapeconfig/default/testscrapeconfig1
-  authorization:
-    type: Bearer
-    credentials: scrape-secret
-  http_sd_configs:
-  - url: http://localhost:9100/sd.json
-    authorization:
-      type: Bearer
-      credentials: http-sd-secret
-`,
+			golden: "ScrapeConfigSpecConfig_Authorization.golden",
+		},
+		{
+			name: "tlsconfig",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				TLSConfig: &monitoringv1.SafeTLSConfig{
+					CA: monitoringv1.SecretOrConfigMap{
+						Secret: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "secret-ca-global",
+							},
+						},
+					},
+					Cert: monitoringv1.SecretOrConfigMap{
+						Secret: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "secret-cert",
+							},
+						},
+					},
+					KeySecret: &v1.SecretKeySelector{
+						LocalObjectReference: v1.LocalObjectReference{
+							Name: "secret",
+						},
+						Key: "key",
+					},
+				},
+				HTTPSDConfigs: []monitoringv1alpha1.HTTPSDConfig{
+					{
+						URL: "http://localhost:9100/sd.json",
+						TLSConfig: &monitoringv1.SafeTLSConfig{
+							InsecureSkipVerify: true,
+							CA: monitoringv1.SecretOrConfigMap{
+								Secret: &v1.SecretKeySelector{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "secret-ca-http",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			golden: "ScrapeConfigSpecConfig_TLSConfig.golden",
+		},
+		{
+			name: "scheme",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				Scheme: ptr.To("HTTPS"),
+			},
+			golden: "ScrapeConfigSpecConfig_Scheme.golden",
+		},
+		{
+			name: "limits",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				SampleLimit:           ptr.To(uint64(10000)),
+				TargetLimit:           ptr.To(uint64(1000)),
+				LabelLimit:            ptr.To(uint64(50)),
+				LabelNameLengthLimit:  ptr.To(uint64(40)),
+				LabelValueLengthLimit: ptr.To(uint64(30)),
+			},
+			golden: "ScrapeConfigSpecConfig_Limits.golden",
+		},
+		{
+			name: "params",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				MetricsPath: ptr.To("/federate"),
+				Params:      map[string][]string{"match[]": {"{job=\"prometheus\"}", "{__name__=~\"job:.*\"}"}},
+			},
+			golden: "ScrapeConfigSpecConfig_Params.golden",
+		},
+		{
+			name: "scrape_interval",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				ScrapeInterval: (*monitoringv1.Duration)(ptr.To("15s")),
+			},
+			golden: "ScrapeConfigSpecConfig_ScrapeInterval.golden",
+		},
+		{
+			name: "scrape_timeout",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				ScrapeTimeout: (*monitoringv1.Duration)(ptr.To("10s")),
+			},
+			golden: "ScrapeConfigSpecConfig_ScrapeTimeout.golden",
+		},
+		{
+			name: "non_empty_metric_relabel_config",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				MetricRelabelConfigs: []*monitoringv1.RelabelConfig{
+					{
+						Regex:  "noisy_labels.*",
+						Action: "labeldrop",
+					},
+				},
+			},
+			golden: "ScrapeConfigSpecConfig_NonEmptyMetricRelabelConfig.golden",
+		},
+		{
+			name: "dns_sd_config-srv-record",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				DNSSDConfigs: []monitoringv1alpha1.DNSSDConfig{
+					{
+						Names: []string{"web.example.com"},
+					},
+				},
+			},
+			golden: "ScrapeConfigSpecConfig_DNSSD_SRVRecord.golden",
+		},
+		{
+			name: "dns_sd_config-a-record",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				DNSSDConfigs: []monitoringv1alpha1.DNSSDConfig{
+					{
+						Names: []string{"node.demo.do.prometheus.io"},
+						Type:  ptr.To("A"),
+						Port:  ptr.To(9100),
+					},
+				},
+			},
+			golden: "ScrapeConfigSpecConfig_DNSSD_ARecord.golden",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -8982,6 +7976,7 @@ scrape_configs:
 
 			cg := mustNewConfigGenerator(t, p)
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				nil,
@@ -9015,7 +8010,236 @@ scrape_configs:
 				nil,
 			)
 			require.NoError(t, err)
-			require.Equal(t, tc.expectedCfg, string(cfg))
+			golden.Assert(t, string(cfg), tc.golden)
+		})
+	}
+}
+
+func TestScrapeConfigSpecConfigWithConsulSD(t *testing.T) {
+	c := fake.NewSimpleClientset(
+		&v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "default",
+			},
+			Data: map[string][]byte{
+				"proxy-header": []byte("value"),
+				"token":        []byte("value"),
+			},
+		},
+	)
+	for _, tc := range []struct {
+		name      string
+		patchProm func(*monitoringv1.Prometheus)
+		scSpec    monitoringv1alpha1.ScrapeConfigSpec
+		golden    string
+	}{
+		{
+			name: "consul_scrape_config",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				ConsulSDConfigs: []monitoringv1alpha1.ConsulSDConfig{
+					{
+						Server:       "localhost",
+						Datacenter:   ptr.To("we1"),
+						Namespace:    ptr.To("observability"),
+						Partition:    ptr.To("1"),
+						Scheme:       ptr.To("https"),
+						Services:     []string{"prometheus", "alertmanager"},
+						Tags:         []string{"tag1"},
+						TagSeparator: ptr.To(";"),
+						NodeMeta: map[string]string{
+							"service": "service_name",
+							"name":    "node_name",
+						},
+						AllowStale:           ptr.To(false),
+						RefreshInterval:      (*monitoringv1.Duration)(ptr.To("30s")),
+						ProxyUrl:             ptr.To("http://no-proxy.com"),
+						NoProxy:              ptr.To("0.0.0.0"),
+						ProxyFromEnvironment: ptr.To(true),
+						ProxyConnectHeader: map[string]v1.SecretKeySelector{
+							"header": {
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "foo",
+								},
+								Key: "proxy-header",
+							},
+						},
+						FollowRedirects: ptr.To(true),
+						EnableHttp2:     ptr.To(true),
+						TokenRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "foo",
+							},
+							Key: "token",
+						},
+					},
+				},
+			},
+			golden: "ConsulScrapeConfig.golden",
+		}, {
+			name: "consul_scrape_config_basic_auth",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				ConsulSDConfigs: []monitoringv1alpha1.ConsulSDConfig{
+					{
+						Server: "localhost:8500",
+						BasicAuth: &monitoringv1.BasicAuth{
+							Username: v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "foo",
+								},
+								Key: "username",
+							},
+							Password: v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "foo",
+								},
+								Key: "password",
+							},
+						},
+					},
+				},
+			},
+			golden: "ConsulScrapeConfigBasicAuth.golden",
+		}, {
+			name: "consul_scrape_config_authorization",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				ConsulSDConfigs: []monitoringv1alpha1.ConsulSDConfig{
+					{
+						Server: "localhost:8500",
+						Authorization: &monitoringv1.SafeAuthorization{
+							Credentials: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "foo",
+								},
+								Key: "credential",
+							},
+						},
+					},
+				},
+			},
+			golden: "ConsulScrapeConfigAuthorization.golden",
+		}, {
+			name: "consul_scrape_config_oauth",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				ConsulSDConfigs: []monitoringv1alpha1.ConsulSDConfig{
+					{
+						Server: "localhost:8500",
+						Oauth2: &monitoringv1.OAuth2{
+							ClientID: monitoringv1.SecretOrConfigMap{
+								ConfigMap: &v1.ConfigMapKeySelector{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "oauth2",
+									},
+									Key: "client_id",
+								},
+							},
+							ClientSecret: v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "oauth2",
+								},
+								Key: "client_secret",
+							},
+							TokenURL: "http://test.url",
+							Scopes:   []string{"scope 1", "scope 2"},
+							EndpointParams: map[string]string{
+								"param1": "value1",
+								"param2": "value2",
+							},
+						},
+					},
+				},
+			},
+			golden: "ConsulScrapeConfigOAuth.golden",
+		}, {
+			name: "consul_scrape_config_tls",
+			scSpec: monitoringv1alpha1.ScrapeConfigSpec{
+				ConsulSDConfigs: []monitoringv1alpha1.ConsulSDConfig{
+					{
+						Server: "localhost:8500",
+						TLSConfig: &monitoringv1.SafeTLSConfig{
+							CA: monitoringv1.SecretOrConfigMap{
+								Secret: &v1.SecretKeySelector{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "secret-ca-global",
+									},
+								},
+							},
+							Cert: monitoringv1.SecretOrConfigMap{
+								Secret: &v1.SecretKeySelector{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "secret-cert",
+									},
+								},
+							},
+							KeySecret: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "secret",
+								},
+								Key: "key",
+							},
+						},
+					},
+				},
+			},
+			golden: "ConsulScrapeConfigTLSConfig.golden",
+		}} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := assets.NewStore(c.CoreV1(), c.CoreV1())
+			store.BasicAuthAssets = map[string]assets.BasicAuthCredentials{
+				"scrapeconfig/default/testscrapeconfig1/consulsdconfig/0": {
+					Username: "consul-sd-bob",
+					Password: "consul-sd-alice",
+				},
+			}
+
+			store.OAuth2Assets = map[string]assets.OAuth2Credentials{
+				"scrapeconfig/default/testscrapeconfig1/consulsdconfig/0": {
+					ClientID:     "client-id",
+					ClientSecret: "client-secret",
+				},
+			}
+
+			store.TokenAssets = map[string]assets.Token{
+				"scrapeconfig/auth/default/testscrapeconfig1/consulsdconfig/0": assets.Token("authorization"),
+			}
+
+			scs := map[string]*monitoringv1alpha1.ScrapeConfig{
+				"sc": {
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testscrapeconfig1",
+						Namespace: "default",
+					},
+					Spec: tc.scSpec,
+				},
+			}
+
+			p := defaultPrometheus()
+			if tc.patchProm != nil {
+				tc.patchProm(p)
+			}
+
+			cg := mustNewConfigGenerator(t, p)
+			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
+				p.Spec.EvaluationInterval,
+				p.Spec.QueryLogFile,
+				nil,
+				nil,
+				p.Spec.TSDB,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				scs,
+				store,
+				nil,
+				nil,
+				nil,
+				nil,
+			)
+			require.NoError(t, err)
+			golden.Assert(t, string(cfg), tc.golden)
 		})
 
 	}
@@ -9049,15 +8273,15 @@ tracing:
 		},
 		{
 			tracingConfig: &monitoringv1.PrometheusTracingConfig{
-				ClientType:       pointer.String("grpc"),
+				ClientType:       ptr.To("grpc"),
 				Endpoint:         "https://otel-collector.default.svc.local:3333",
 				SamplingFraction: &samplingTwo,
 				Headers: map[string]string{
 					"custom": "header",
 				},
-				Compression: pointer.String("gzip"),
-				Timeout:     (*monitoringv1.Duration)(pointer.String("10s")),
-				Insecure:    pointer.Bool(false),
+				Compression: ptr.To("gzip"),
+				Timeout:     (*monitoringv1.Duration)(ptr.To("10s")),
+				Insecure:    ptr.To(false),
 			},
 			name:        "Expect valid config",
 			expectedErr: false,
@@ -9089,6 +8313,7 @@ tracing:
 			cg := mustNewConfigGenerator(t, p)
 
 			cfg, err := cg.GenerateServerConfiguration(
+				context.Background(),
 				p.Spec.EvaluationInterval,
 				p.Spec.QueryLogFile,
 				p.Spec.RuleSelector,
