@@ -121,16 +121,10 @@ func makeStatefulSet(
 		cpf.PortName = prompkg.DefaultPortName
 	}
 
-	if cpf.Replicas == nil {
-		cpf.Replicas = &prompkg.MinReplicas
-	}
 	if cpf.PodManagementPolicy == nil {
 		cpf.PodManagementPolicy = &defaultPodManagementPolicy
 	}
-	intZero := int32(0)
-	if cpf.Replicas != nil && *cpf.Replicas < 0 {
-		cpf.Replicas = &intZero
-	}
+
 	cpf.Replicas = prompkg.ReplicasNumberPtr(p)
 
 	// We need to re-set the common fields because cpf is only a copy of the original object.

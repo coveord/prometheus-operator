@@ -30,7 +30,7 @@ COMMIT_SHA="$(echo "${GITHUB_SHA:-$(git rev-parse HEAD)}" | cut -c1-8)"
 GITHUB_REF="${GITHUB_REF:-$(git symbolic-ref HEAD)}"
 TAG="${GITHUB_REF##*/}"
 
-IMAGE_SUFFIX="-dev"
+IMAGE_SUFFIX=""
 MAIN_BRANCH=""
 
 # Use the "official" image repository if TAG is a semver tag or it is the main
