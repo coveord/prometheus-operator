@@ -993,6 +993,52 @@ func TestSelectScrapeConfigs(t *testing.T) {
 			selected: false,
 		},
 		{
+			scenario: "Kubernetes SD config with invalid label",
+			updateSpec: func(sc *monitoringv1alpha1.ScrapeConfigSpec) {
+				sc.KubernetesSDConfigs = []monitoringv1alpha1.KubernetesSDConfig{
+					{
+						Selectors: []monitoringv1alpha1.K8SSelectorConfig{
+							{
+								Label: "app=example,env!=production,release in (v1, v2",
+							},
+						},
+					},
+				}
+			},
+			selected: false,
+		},
+		{
+			scenario: "Kubernetes SD config with invalid field",
+			updateSpec: func(sc *monitoringv1alpha1.ScrapeConfigSpec) {
+				sc.KubernetesSDConfigs = []monitoringv1alpha1.KubernetesSDConfig{
+					{
+						Selectors: []monitoringv1alpha1.K8SSelectorConfig{
+							{
+								Field: "status.phase=Running,metadata.name!=worker,)",
+							},
+						},
+					},
+				}
+			},
+			selected: false,
+		},
+		{
+			scenario: "Kubernetes SD config with valid label and field",
+			updateSpec: func(sc *monitoringv1alpha1.ScrapeConfigSpec) {
+				sc.KubernetesSDConfigs = []monitoringv1alpha1.KubernetesSDConfig{
+					{
+						Selectors: []monitoringv1alpha1.K8SSelectorConfig{
+							{
+								Label: "app=example,env!=production,release in (v1, v2)",
+								Field: "status.phase=Running,metadata.name!=worker",
+							},
+						},
+					},
+				}
+			},
+			selected: true,
+		},
+		{
 			scenario: "Consul SD config with valid secret ref",
 			updateSpec: func(sc *monitoringv1alpha1.ScrapeConfigSpec) {
 				sc.ConsulSDConfigs = []monitoringv1alpha1.ConsulSDConfig{
@@ -1027,6 +1073,17 @@ func TestSelectScrapeConfigs(t *testing.T) {
 			selected: false,
 		},
 		{
+			scenario: "Consul SD config with no secret ref provided",
+			updateSpec: func(sc *monitoringv1alpha1.ScrapeConfigSpec) {
+				sc.ConsulSDConfigs = []monitoringv1alpha1.ConsulSDConfig{
+					{
+						Server: "example.com",
+					},
+				}
+			},
+			selected: true,
+		},
+		{
 			scenario: "DNS SD config with port for type other than SRV record",
 			updateSpec: func(sc *monitoringv1alpha1.ScrapeConfigSpec) {
 				sc.DNSSDConfigs = []monitoringv1alpha1.DNSSDConfig{
@@ -1051,6 +1108,86 @@ func TestSelectScrapeConfigs(t *testing.T) {
 			},
 			selected: false,
 		},
+		{
+			scenario: "EC2 SD config with valid secret ref",
+			updateSpec: func(sc *monitoringv1alpha1.ScrapeConfigSpec) {
+				sc.EC2SDConfigs = []monitoringv1alpha1.EC2SDConfig{
+					{
+						Region: ptr.To("us-east-1"),
+						AccessKey: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "secret",
+							},
+							Key: "key1",
+						},
+						SecretKey: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "secret",
+							},
+							Key: "key2",
+						},
+					},
+				}
+			},
+			selected: true,
+		},
+		{
+			scenario: "EC2 SD config with no secret ref provided",
+			updateSpec: func(sc *monitoringv1alpha1.ScrapeConfigSpec) {
+				sc.EC2SDConfigs = []monitoringv1alpha1.EC2SDConfig{
+					{
+						Region: ptr.To("us-east-1"),
+					},
+				}
+			},
+			selected: true,
+		},
+		{
+			scenario: "EC2 SD config with invalid secret ref for accessKey",
+			updateSpec: func(sc *monitoringv1alpha1.ScrapeConfigSpec) {
+				sc.EC2SDConfigs = []monitoringv1alpha1.EC2SDConfig{
+					{
+						Region: ptr.To("us-east-1"),
+						AccessKey: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "wrong",
+							},
+							Key: "key1",
+						},
+						SecretKey: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "secret",
+							},
+							Key: "key2",
+						},
+					},
+				}
+			},
+			selected: false,
+		},
+		{
+			scenario: "EC2 SD config with invalid secret ref for secretKey",
+			updateSpec: func(sc *monitoringv1alpha1.ScrapeConfigSpec) {
+				sc.EC2SDConfigs = []monitoringv1alpha1.EC2SDConfig{
+					{
+						Region: ptr.To("us-east-1"),
+						AccessKey: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "secret",
+							},
+							Key: "key1",
+						},
+						SecretKey: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "wrong",
+							},
+							Key: "key2",
+						},
+					},
+				}
+			},
+			selected: false,
+		},
 	} {
 		t.Run(tc.scenario, func(t *testing.T) {
 			cs := fake.NewSimpleClientset(
@@ -1061,6 +1198,7 @@ func TestSelectScrapeConfigs(t *testing.T) {
 					},
 					Data: map[string][]byte{
 						"key1": []byte("val1"),
+						"key2": []byte("val2"),
 					},
 				},
 				&v1.ConfigMap{

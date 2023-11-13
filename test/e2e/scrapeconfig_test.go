@@ -90,7 +90,7 @@ func testScrapeConfigCreation(t *testing.T) {
 			spec: monitoringv1alpha1.ScrapeConfigSpec{
 				KubernetesSDConfigs: []monitoringv1alpha1.KubernetesSDConfig{
 					{
-						Role: "Node",
+						Role: monitoringv1alpha1.K8SRole("Node"),
 					},
 				},
 			},
@@ -162,7 +162,17 @@ func testScrapeConfigLifecycle(t *testing.T) {
 	ns := framework.CreateNamespace(context.Background(), t, testCtx)
 	framework.SetupPrometheusRBAC(context.Background(), t, testCtx, ns)
 
-	_, err := framework.CreateOrUpdatePrometheusOperator(context.Background(), ns, []string{ns}, nil, []string{ns}, nil, false, true, true)
+	_, err := framework.CreateOrUpdatePrometheusOperator(
+		context.Background(),
+		ns,
+		[]string{ns},
+		nil,
+		[]string{ns},
+		nil,
+		false,
+		true, // clusterrole
+		true,
+	)
 	require.NoError(t, err)
 
 	p := framework.MakeBasicPrometheus(ns, "prom", "group", 1)
@@ -321,7 +331,7 @@ func testScrapeConfigKubernetesNodeRole(t *testing.T) {
 
 	sc.Spec.KubernetesSDConfigs = []monitoringv1alpha1.KubernetesSDConfig{
 		{
-			Role: "Node",
+			Role: monitoringv1alpha1.K8SRole("Node"),
 		},
 	}
 	_, err = framework.CreateScrapeConfig(context.Background(), ns, sc)
